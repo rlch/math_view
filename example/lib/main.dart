@@ -264,7 +264,7 @@ class _InlineTextMath extends StatelessWidget {
           WidgetSpan(
             alignment: PlaceholderAlignment.baseline,
             baseline: TextBaseline.alphabetic,
-            child: MathView(latex: latex, fontSize: 16, debugBaseline: true),
+            child: MathView(latex: latex, fontSize: 16),
           ),
           TextSpan(text: after),
         ],

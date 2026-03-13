@@ -166,33 +166,12 @@ class RenderMath extends RenderBox {
     }
 
     if (_debugBaseline) {
-      // Compare with system font baseline for reference
-      final sysTp = TextPainter(
-        text: const TextSpan(text: 'that', style: TextStyle(fontSize: 16)),
-        textDirection: ui.TextDirection.ltr,
-      )..layout();
-      final sysAscent = sysTp.computeDistanceToActualBaseline(TextBaseline.alphabetic);
-      // ignore: avoid_print
-      print('System font: height=${sysTp.height.toStringAsFixed(2)} ascent=${sysAscent?.toStringAsFixed(2)}');
-      // ignore: avoid_print
-      print('Layout: height=${l.height.toStringAsFixed(4)}em '
-          'depth=${l.depth.toStringAsFixed(4)}em '
-          'width=${l.width.toStringAsFixed(4)}em '
-          'fontSize=$_fontSize '
-          'baselineFromTop=${baselineFromTop.toStringAsFixed(2)} '
-          'fontAscent=${_cachedFontAscent?.toStringAsFixed(2)} '
-          'fontDescent=${_cachedFontDescent?.toStringAsFixed(2)} '
-          'widgetH=${size.height.toStringAsFixed(2)}');
-
-      final paint = Paint()
-        ..strokeWidth = 1;
-      // Blue rect = bounding box
+      final paint = Paint()..strokeWidth = 1;
       paint.color = const Color(0x400000FF);
       canvas.drawRect(
         Rect.fromLTWH(offset.dx, offset.dy, size.width, size.height),
         paint,
       );
-      // Red line = baseline
       paint.color = const Color(0xFFFF0000);
       canvas.drawLine(
         Offset(offset.dx, offset.dy + baselineFromTop),
@@ -237,18 +216,6 @@ class RenderMath extends RenderBox {
     final dx = offset.dx + glyph.x * _fontSize;
     final dy = offset.dy + baselineFromTop - glyph.y * _fontSize - ascent;
 
-    if (_debugBaseline) {
-      // ignore: avoid_print
-      print('Glyph ${String.fromCharCode(glyph.codepoint)} '
-          'font=${glyph.fontName} scale=${glyph.scale.toStringAsFixed(2)} '
-          'tp.height=${tp.height.toStringAsFixed(2)} '
-          'tp.ascent=${ascent.toStringAsFixed(2)} '
-          'tp.width=${tp.width.toStringAsFixed(2)} '
-          'katex_y=${glyph.y.toStringAsFixed(4)} '
-          'dy_offset=${(dy - offset.dy).toStringAsFixed(2)} '
-          'baseline_target=${(baselineFromTop - glyph.y * _fontSize).toStringAsFixed(2)}');
-    }
-
     tp.paint(canvas, Offset(dx, dy));
   }
 
@@ -261,13 +228,6 @@ class RenderMath extends RenderBox {
     final ruleColor = rule.color != null
         ? _parseColor(rule.color!) ?? _color
         : _color;
-
-    if (_debugBaseline) {
-      // ignore: avoid_print
-      print('Rule: x=${rule.x.toStringAsFixed(4)} y=${rule.y.toStringAsFixed(4)} '
-          'w=${rule.width.toStringAsFixed(4)} h=${rule.height.toStringAsFixed(4)} '
-          'screenY_above_baseline=${(rule.y * _fontSize).toStringAsFixed(2)}px');
-    }
 
     final paint = Paint()..color = ruleColor;
     final rect = Rect.fromLTWH(

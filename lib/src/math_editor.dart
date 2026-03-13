@@ -2,7 +2,6 @@ import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 
-import 'render/editable_math_line.dart';
 import 'render/math_block_widget.dart';
 import 'rust/api/editor_api.dart';
 
@@ -188,23 +187,21 @@ class _MathEditorState extends State<MathEditor> with TickerProviderStateMixin {
     final result = BoxHitTestResult();
     renderBox.hitTest(result, position: localPosition);
 
-    // Find the deepest RenderEditableMathLine that was hit
     for (final entry in result.path) {
       final target = entry.target;
-      if (target is RenderEditableMathLine) {
+      if (target is RenderMathBlock) {
         final localPos = target.globalToLocal(
           renderBox.localToGlobal(localPosition),
         );
-        final caretIndex = target.getCaretIndexForPoint(localPos);
+        final (blockId, caretIndex) = target.hitTestForCaret(localPos);
         _dispatch(EditorIntent.tapBlock(
-          blockId: target.blockId,
+          blockId: blockId,
           caretIndex: caretIndex,
         ));
         return;
       }
     }
 
-    // Fallback: tap outside any block → move to end
     _dispatch(const EditorIntent.moveToEnd());
   }
 

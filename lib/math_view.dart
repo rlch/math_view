@@ -1,6 +1,6 @@
 export 'src/math_editor.dart';
 export 'src/math_view.dart';
-export 'src/render/math_block_widget.dart' show MathBlockWidget;
+export 'src/render/math_block_widget.dart' show MathBlockWidget, RenderMathBlock;
 export 'src/rust/api/editor_api.dart'
     show
         EditorIntent,
