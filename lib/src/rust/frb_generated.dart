@@ -516,9 +516,12 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   EditorLayout dco_decode_editor_layout(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     final arr = raw as List<dynamic>;
-    if (arr.length != 1)
-      throw Exception('unexpected arr length: expect 1 but see ${arr.length}');
-    return EditorLayout(root: dco_decode_block_layout(arr[0]));
+    if (arr.length != 2)
+      throw Exception('unexpected arr length: expect 2 but see ${arr.length}');
+    return EditorLayout(
+      root: dco_decode_block_layout(arr[0]),
+      untagged: dco_decode_list_math_node(arr[1]),
+    );
   }
 
   @protected
@@ -921,7 +924,8 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   EditorLayout sse_decode_editor_layout(SseDeserializer deserializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
     var var_root = sse_decode_block_layout(deserializer);
-    return EditorLayout(root: var_root);
+    var var_untagged = sse_decode_list_math_node(deserializer);
+    return EditorLayout(root: var_root, untagged: var_untagged);
   }
 
   @protected
@@ -1398,6 +1402,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   void sse_encode_editor_layout(EditorLayout self, SseSerializer serializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
     sse_encode_block_layout(self.root, serializer);
+    sse_encode_list_math_node(self.untagged, serializer);
   }
 
   @protected

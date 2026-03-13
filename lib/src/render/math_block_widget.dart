@@ -14,6 +14,10 @@ import 'math_paint.dart';
 /// provides cursor/selection scoping and hit testing (tap → block + gap).
 class MathBlockWidget extends LeafRenderObjectWidget {
   final BlockLayout block;
+
+  /// Untagged decoration nodes (fraction bars, radical signs) from katex-rs
+  /// that have no arena node_id.
+  final List<MathNode> untaggedGlyphs;
   final bool isEditable;
   final double fontSize;
   final Color color;
@@ -24,6 +28,7 @@ class MathBlockWidget extends LeafRenderObjectWidget {
   const MathBlockWidget({
     super.key,
     required this.block,
+    this.untaggedGlyphs = const [],
     required this.isEditable,
     required this.fontSize,
     required this.color,
@@ -36,6 +41,7 @@ class MathBlockWidget extends LeafRenderObjectWidget {
   RenderMathBlock createRenderObject(BuildContext context) {
     return RenderMathBlock(
       block: block,
+      untaggedGlyphs: untaggedGlyphs,
       isEditable: isEditable,
       fontSize: fontSize,
       color: color,
@@ -49,6 +55,7 @@ class MathBlockWidget extends LeafRenderObjectWidget {
   void updateRenderObject(BuildContext context, RenderMathBlock renderObject) {
     renderObject
       ..block = block
+      ..untaggedGlyphs = untaggedGlyphs
       ..isEditable = isEditable
       ..fontSize = fontSize
       ..color = color
@@ -63,6 +70,7 @@ class MathBlockWidget extends LeafRenderObjectWidget {
 class RenderMathBlock extends RenderBox {
   RenderMathBlock({
     required BlockLayout block,
+    required List<MathNode> untaggedGlyphs,
     required bool isEditable,
     required double fontSize,
     required Color color,
@@ -70,6 +78,7 @@ class RenderMathBlock extends RenderBox {
     required double cursorOpacity,
     required Color selectionColor,
   })  : _block = block,
+        _untaggedGlyphs = untaggedGlyphs,
         _isEditable = isEditable,
         _fontSize = fontSize,
         _color = color,
@@ -80,6 +89,12 @@ class RenderMathBlock extends RenderBox {
   BlockLayout _block;
   set block(BlockLayout value) {
     _block = value;
+    markNeedsLayout();
+  }
+
+  List<MathNode> _untaggedGlyphs;
+  set untaggedGlyphs(List<MathNode> value) {
+    _untaggedGlyphs = value;
     markNeedsLayout();
   }
 
@@ -167,6 +182,7 @@ class RenderMathBlock extends RenderBox {
   void performLayout() {
     _ensureFontMetrics();
     _allGlyphs = _collectAllGlyphs(_block);
+    _allGlyphs.addAll(_untaggedGlyphs);
     _computeExprExtents();
 
     final ascent = _baselineFromTop;

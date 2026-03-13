@@ -534,7 +534,11 @@ impl SseDecode for crate::api::editor_layout::EditorLayout {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
         let mut var_root = <crate::api::editor_layout::BlockLayout>::sse_decode(deserializer);
-        return crate::api::editor_layout::EditorLayout { root: var_root };
+        let mut var_untagged = <Vec<crate::api::math_api::MathNode>>::sse_decode(deserializer);
+        return crate::api::editor_layout::EditorLayout {
+            root: var_root,
+            untagged: var_untagged,
+        };
     }
 }
 
@@ -1062,7 +1066,11 @@ impl flutter_rust_bridge::IntoIntoDart<crate::api::editor_api::EditorIntent>
 // Codec=Dco (DartCObject based), see doc to use other codecs
 impl flutter_rust_bridge::IntoDart for crate::api::editor_layout::EditorLayout {
     fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
-        [self.root.into_into_dart().into_dart()].into_dart()
+        [
+            self.root.into_into_dart().into_dart(),
+            self.untagged.into_into_dart().into_dart(),
+        ]
+        .into_dart()
     }
 }
 impl flutter_rust_bridge::for_generated::IntoDartExceptPrimitive
@@ -1516,6 +1524,7 @@ impl SseEncode for crate::api::editor_layout::EditorLayout {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
         <crate::api::editor_layout::BlockLayout>::sse_encode(self.root, serializer);
+        <Vec<crate::api::math_api::MathNode>>::sse_encode(self.untagged, serializer);
     }
 }
 

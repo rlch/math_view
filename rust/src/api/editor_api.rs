@@ -158,6 +158,7 @@ fn empty_snapshot() -> EditorSnapshot {
                 cursor_index: None,
                 selection: None,
             },
+            untagged: Vec::new(),
         },
         latex: String::new(),
     }

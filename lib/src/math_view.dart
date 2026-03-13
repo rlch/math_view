@@ -140,6 +140,7 @@ class _SelectableMathView extends StatelessWidget {
 
     return MathBlockWidget(
       block: layout.root,
+      untaggedGlyphs: layout.untagged,
       isEditable: false,
       fontSize: fs,
       color: c,

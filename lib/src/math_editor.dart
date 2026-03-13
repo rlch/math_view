@@ -224,6 +224,7 @@ class _MathEditorState extends State<MathEditor> with TickerProviderStateMixin {
           animation: _cursorBlink,
           builder: (context, _) => MathBlockWidget(
             block: _snapshot.editorLayout.root,
+            untaggedGlyphs: _snapshot.editorLayout.untagged,
             isEditable: true,
             fontSize: fontSize,
             color: color,

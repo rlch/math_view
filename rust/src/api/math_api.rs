@@ -226,6 +226,7 @@ pub fn layout_math_tree(latex: String, display_mode: bool) -> crate::api::editor
                     cursor_index: None,
                     selection: None,
                 },
+                untagged: Vec::new(),
             };
         }
     };
