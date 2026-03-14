@@ -9,7 +9,7 @@ import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 import 'package:freezed_annotation/freezed_annotation.dart' hide protected;
 part 'editor_layout.freezed.dart';
 
-// These functions are ignored because they are not marked as `pub`: `build_block_layout`, `build_editor_layout`, `build_node_layout`, `build_readonly_layout`, `collect_subtree_glyphs`, `compute_baseline_shift`, `compute_block_selection`, `compute_cursor_index`, `compute_font_scale`, `compute_glyph_extents`, `compute_left_x`, `compute_right_x`, `from_state`, `glyphs_for_subtree`, `glyphs_for`, `new`, `none`
+// These functions are ignored because they are not marked as `pub`: `build_block_layout`, `build_editor_layout`, `build_node_layout`, `build_readonly_layout`, `collect_subtree_glyphs`, `compute_baseline_shift`, `compute_block_selection`, `compute_cursor_index`, `compute_font_scale`, `compute_glyph_extents`, `compute_left_x`, `compute_right_x`, `from_state`, `glyphs_for_subtree`, `glyphs_for`, `new`, `none`, `patch_empty_child_blocks`
 // These types are ignored because they are neither used by any `pub` functions nor (for structs and enums) marked `#[frb(unignore)]`: `BlockCursorInfo`, `GlyphIndex`, `SelectionInfo`
 // These function are ignored because they are on traits that is not defined in current crate (put an empty `#[frb]` on it to unignore): `clone`, `clone`, `clone`, `clone`, `clone`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `from`
 

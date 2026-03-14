@@ -293,12 +293,19 @@ class RenderCommandBox extends RenderBox
     final totalWidth = math.max(maxRight, cmdWidthPx);
     size = constraints.constrain(Size(totalWidth, maxAscent + maxDescent));
 
-    // Center empty child blocks within the Rust command width (= fraction bar span).
+    // Center empty child blocks within their available area.
+    // For fractions: the block's left_x equals the command left_x, so the
+    // available area is the full command width (fraction bar span).
+    // For sqrt: the radicand block's left_x is past the radical sign, so
+    // the placeholder is positioned there instead of over the radical glyph.
     child = firstChild;
     while (child != null) {
       if (child is RenderEditableMathLine && child.isEmpty) {
         final pd = child.parentData! as MathParentData;
-        final centeredDx = (cmdWidthPx - child.size.width) / 2;
+        final blockStartDx = (pd.absoluteXEm - _originXEm) * _fontSize;
+        final availableWidth = math.max(0.0, cmdWidthPx - blockStartDx);
+        final centeredDx =
+            blockStartDx + math.max(0.0, availableWidth - child.size.width) / 2;
         pd.offset = Offset(centeredDx, pd.offset.dy);
       }
       child = childAfter(child);
@@ -427,6 +434,7 @@ class RenderLatexCommandInput extends RenderBox {
   set text(String value) {
     if (_text == value) return;
     _text = value;
+    _textPainter?.dispose();
     _textPainter = null;
     markNeedsLayout();
   }
@@ -435,6 +443,7 @@ class RenderLatexCommandInput extends RenderBox {
   set fontSize(double value) {
     if (_fontSize == value) return;
     _fontSize = value;
+    _textPainter?.dispose();
     _textPainter = null;
     markNeedsLayout();
   }

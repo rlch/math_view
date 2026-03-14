@@ -48,6 +48,7 @@ abstract final class MathPaint {
     final dx = offset.dx + glyph.x * fontSize;
     final dy = offset.dy + baselineFromTop - glyph.y * fontSize - ascent;
     tp.paint(canvas, Offset(dx, dy));
+    tp.dispose();
   }
 
   /// Paint a rule (fraction bar, overline, etc.) node.
@@ -167,6 +168,8 @@ abstract final class MathPaint {
       ),
       textDirection: ui.TextDirection.ltr,
     )..layout();
-    return tp.width;
+    final width = tp.width;
+    tp.dispose();
+    return width;
   }
 }

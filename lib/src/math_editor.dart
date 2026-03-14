@@ -79,11 +79,26 @@ class _MathEditorState extends State<MathEditor> with TickerProviderStateMixin {
     _cursorBlink = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 530),
-    )..repeat(reverse: true);
+    );
+    _focusNode.addListener(_onFocusChanged);
+    if (widget.autofocus) {
+      _cursorBlink.repeat(reverse: true);
+    }
+  }
+
+  void _onFocusChanged() {
+    if (_focusNode.hasFocus) {
+      _cursorBlink.repeat(reverse: true);
+    } else {
+      _cursorBlink.stop();
+      _cursorBlink.value = 0.0;
+    }
+    setState(() {}); // Rebuild to update cursor visibility
   }
 
   @override
   void dispose() {
+    _focusNode.removeListener(_onFocusChanged);
     _cursorBlink.dispose();
     _focusNode.dispose();
     closeEditor(id: _editorId);
@@ -191,6 +206,11 @@ class _MathEditorState extends State<MathEditor> with TickerProviderStateMixin {
     // Structural shortcuts
     if (key == LogicalKeyboardKey.slash && meta) {
       _dispatch(const EditorIntent.insertFrac());
+      return KeyEventResult.handled;
+    }
+    // LiveFraction: bare "/" wraps left content into numerator
+    if (key == LogicalKeyboardKey.slash && !meta) {
+      _dispatch(const EditorIntent.liveFraction());
       return KeyEventResult.handled;
     }
 

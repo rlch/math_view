@@ -2,8 +2,8 @@ use crate::editor::arena::Arena;
 use crate::editor::command_table;
 use crate::editor::convert;
 use crate::editor::cursor::{Cursor, Selection};
-use crate::editor::intent::Intent;
-use crate::editor::node_kind::NodeKind;
+use crate::editor::intent::{CommandKind, Intent};
+use crate::editor::node_kind::{AtomFamily, NodeKind};
 use crate::editor::state::State;
 
 /// Pure reducer: apply an intent to the editor state.
@@ -12,6 +12,9 @@ pub fn reduce(state: &mut State, intent: Intent) {
         Intent::InsertSymbol(ch) => {
             delete_selection(state);
             state.arena.insert_symbol_at_cursor(&mut state.cursor, ch);
+            if ch.is_alphabetic() {
+                try_auto_operator(state);
+            }
         }
         Intent::InsertCommand(cmd) => {
             let selected = take_selection_nodes(state);
@@ -113,6 +116,52 @@ pub fn reduce(state: &mut State, intent: Intent) {
                     };
                 }
             }
+        }
+        Intent::LiveFraction => {
+            delete_selection(state);
+            // Walk left from cursor, collecting nodes to wrap into the numerator.
+            // Stop at block start or at a node with Bin/Rel/Open/Punct family.
+            let mut to_wrap: Vec<crate::editor::arena::NodeId> = Vec::new();
+            let mut current = state.cursor.left;
+            while let Some(nid) = current {
+                let node = state.arena.node(nid);
+                if let NodeKind::Symbol { atom_family, .. } = &node.kind {
+                    match atom_family {
+                        AtomFamily::Bin | AtomFamily::Rel | AtomFamily::Open | AtomFamily::Punct => break,
+                        _ => {}
+                    }
+                }
+                to_wrap.push(nid);
+                current = node.left;
+            }
+            // Reverse to get left-to-right order
+            to_wrap.reverse();
+
+            // Splice out the collected nodes
+            if !to_wrap.is_empty() {
+                let first = to_wrap[0];
+                let before = state.arena.node(first).left;
+                state.cursor.left = before;
+                state.arena.splice_out(&to_wrap);
+            }
+
+            // Insert a Frac command at cursor
+            let node_id = state.arena.insert_command(&mut state.cursor, CommandKind::Frac);
+
+            // Splice the collected nodes into the numerator (first child block)
+            let n = state.arena.node(node_id);
+            let numer_block = n.blocks[0];
+            let denom_block = n.blocks[1];
+            if !to_wrap.is_empty() {
+                state.arena.splice_into(numer_block, &to_wrap);
+            }
+
+            // Place cursor in denominator
+            state.cursor = Cursor {
+                parent: denom_block,
+                left: None,
+                right: None,
+            };
         }
         Intent::SetLatex(latex) => {
             match convert::import_latex(&latex) {
@@ -290,4 +339,169 @@ fn order_cursors<'a>(
     }
     // Didn't find b after a → b is to the left
     (b, a)
+}
+
+// ============================================================
+// Auto-operator detection
+// ============================================================
+
+const AUTO_OPERATOR_NAMES: &[&str] = &[
+    "arccos", "arcsin", "arctan",
+    "arg", "cos", "cosh", "cot", "coth", "csc", "csch",
+    "deg", "det", "dim", "exp",
+    "gcd", "hom", "inf", "ker",
+    "lcm", "lg", "lim", "ln", "log",
+    "max", "min", "mod",
+    "Pr",
+    "sec", "sech", "sin", "sinh", "sup",
+    "tan", "tanh",
+];
+
+/// After inserting a letter, check if the consecutive letters ending at cursor
+/// form a known operator name. If so, replace them with an OperatorName node.
+/// Also handles extending an existing OperatorName (e.g. sin + h → sinh).
+fn try_auto_operator(state: &mut State) {
+    use crate::editor::arena::NodeId;
+
+    // Collect consecutive letter Symbol nodes ending at cursor.left,
+    // walking leftward. We store (NodeId, char) in reverse order.
+    let mut letters_rev: Vec<(NodeId, char)> = Vec::new();
+    let mut preceding_op: Option<NodeId> = None;
+    let mut current = state.cursor.left;
+    while let Some(nid) = current {
+        let node = state.arena.node(nid);
+        match &node.kind {
+            NodeKind::Symbol { text, .. } if text.len() == 1 => {
+                let ch = text.chars().next().unwrap();
+                if ch.is_alphabetic() {
+                    letters_rev.push((nid, ch));
+                    current = node.left;
+                } else {
+                    break;
+                }
+            }
+            NodeKind::OperatorName => {
+                // There's an existing OperatorName immediately before the loose letters.
+                // We may need to extend it (e.g. \operatorname{sin} + h → \operatorname{sinh}).
+                preceding_op = Some(nid);
+                break;
+            }
+            _ => break,
+        }
+    }
+
+    if letters_rev.is_empty() {
+        return;
+    }
+
+    // If there's a preceding OperatorName, extract its letters and prepend them
+    let mut op_letter_nodes: Vec<(NodeId, char)> = Vec::new();
+    if let Some(op_nid) = preceding_op {
+        let op_node = state.arena.node(op_nid);
+        let child_block = op_node.blocks[0];
+        let mut cur = state.arena.block(child_block).first;
+        while let Some(nid) = cur {
+            let node = state.arena.node(nid);
+            if let NodeKind::Symbol { text, .. } = &node.kind {
+                if text.len() == 1 {
+                    let ch = text.chars().next().unwrap();
+                    op_letter_nodes.push((nid, ch));
+                }
+            }
+            cur = state.arena.node(nid).right;
+        }
+    }
+
+    // Build the full string: op_letters (left-to-right) + loose letters (left-to-right)
+    let mut full_letters: String = op_letter_nodes.iter().map(|(_, ch)| ch).collect();
+    let loose_letters: String = letters_rev.iter().rev().map(|(_, ch)| ch).collect();
+    full_letters.push_str(&loose_letters);
+
+    // Find the longest suffix of full_letters that matches an operator name
+    let mut best_len: usize = 0;
+    for &name in AUTO_OPERATOR_NAMES {
+        if name.len() <= full_letters.len() && name.len() > best_len && full_letters.ends_with(name) {
+            best_len = name.len();
+        }
+    }
+
+    if best_len == 0 {
+        return;
+    }
+
+    // Determine how many of the loose letters vs op letters are consumed
+    let loose_count = letters_rev.len();
+    let block_id = state.cursor.parent;
+    let cursor_right = state.cursor.right;
+
+    if best_len <= loose_count {
+        // Match is entirely within the loose letters (no need to touch preceding op)
+        let matched_nodes: Vec<NodeId> = letters_rev[..best_len].iter().rev().map(|(nid, _)| *nid).collect();
+
+        let before_match = state.arena.node(matched_nodes[0]).left;
+        state.arena.splice_out(&matched_nodes);
+
+        state.cursor = Cursor {
+            parent: block_id,
+            left: before_match,
+            right: cursor_right,
+        };
+
+        let op_node_id = state.arena.insert_at_cursor(&mut state.cursor, NodeKind::OperatorName);
+        let child_block = state.arena.alloc_block(Some(op_node_id));
+        state.arena.node_mut(op_node_id).blocks = vec![child_block];
+        state.arena.splice_into(child_block, &matched_nodes);
+
+        state.cursor = Cursor {
+            parent: block_id,
+            left: Some(op_node_id),
+            right: cursor_right,
+        };
+    } else if let Some(op_nid) = preceding_op {
+        // Match extends into (or fully covers) the preceding OperatorName.
+        // We need to unwrap the old OperatorName and re-wrap with the new longer match.
+
+        // All loose letter nodes are part of the match
+        let loose_nodes: Vec<NodeId> = letters_rev.iter().rev().map(|(nid, _)| *nid).collect();
+
+        // Splice out the loose letters from the parent block
+        state.arena.splice_out(&loose_nodes);
+
+        // The old OperatorName's child block letters are already collected in op_letter_nodes.
+        // We need to remove the old OperatorName node and take its letters.
+        let old_child_block = state.arena.node(op_nid).blocks[0];
+        let old_op_letters: Vec<NodeId> = state.arena.block_children(old_child_block);
+
+        // Splice old letters out of the child block
+        if !old_op_letters.is_empty() {
+            state.arena.splice_out(&old_op_letters);
+        }
+
+        // Remove the old OperatorName node from the parent block
+        let before_old_op = state.arena.node(op_nid).left;
+        state.arena.remove_node(op_nid);
+
+        // Build the combined node list: old op letters + loose letters
+        let mut all_nodes = old_op_letters;
+        all_nodes.extend(loose_nodes);
+
+        // Position cursor where the old op was
+        state.cursor = Cursor {
+            parent: block_id,
+            left: before_old_op,
+            right: cursor_right,
+        };
+
+        // Create new OperatorName
+        let new_op_id = state.arena.insert_at_cursor(&mut state.cursor, NodeKind::OperatorName);
+        let child_block = state.arena.alloc_block(Some(new_op_id));
+        state.arena.node_mut(new_op_id).blocks = vec![child_block];
+        state.arena.splice_into(child_block, &all_nodes);
+
+        state.cursor = Cursor {
+            parent: block_id,
+            left: Some(new_op_id),
+            right: cursor_right,
+        };
+    }
 }

@@ -54,6 +54,8 @@ pub struct EditorSnapshot {
 pub enum EditorIntent {
     InsertSymbol { ch: String },
     InsertFrac,
+    /// MathQuill-style LiveFraction: wrap left content into numerator, cursor in denominator.
+    LiveFraction,
     InsertSqrt,
     InsertNthRoot,
     InsertSup,
@@ -260,6 +262,7 @@ fn convert_intent(intent: EditorIntent, arena: &editor::Arena) -> editor::Intent
             editor::Intent::InsertSymbol(ch.chars().next().unwrap_or(' '))
         }
         EditorIntent::InsertFrac => editor::Intent::InsertCommand(editor::CommandKind::Frac),
+        EditorIntent::LiveFraction => editor::Intent::LiveFraction,
         EditorIntent::InsertSqrt => editor::Intent::InsertCommand(editor::CommandKind::Sqrt),
         EditorIntent::InsertNthRoot => editor::Intent::InsertCommand(editor::CommandKind::NthRoot),
         EditorIntent::InsertSup => editor::Intent::InsertCommand(editor::CommandKind::Sup),

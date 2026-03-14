@@ -52,6 +52,9 @@ sealed class EditorIntent with _$EditorIntent {
   const factory EditorIntent.insertSymbol({required String ch}) =
       EditorIntent_InsertSymbol;
   const factory EditorIntent.insertFrac() = EditorIntent_InsertFrac;
+
+  /// MathQuill-style LiveFraction: wrap left content into numerator, cursor in denominator.
+  const factory EditorIntent.liveFraction() = EditorIntent_LiveFraction;
   const factory EditorIntent.insertSqrt() = EditorIntent_InsertSqrt;
   const factory EditorIntent.insertNthRoot() = EditorIntent_InsertNthRoot;
   const factory EditorIntent.insertSup() = EditorIntent_InsertSup;

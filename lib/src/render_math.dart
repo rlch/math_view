@@ -96,6 +96,7 @@ class RenderMath extends RenderBox {
         _fontSize * 0.75;
     _cachedFontDescent = tp.height - _cachedFontAscent!;
     _cachedForFontSize = _fontSize;
+    tp.dispose();
   }
 
   /// The pixel distance from the widget's top to the math baseline.
@@ -217,6 +218,7 @@ class RenderMath extends RenderBox {
     final dy = offset.dy + baselineFromTop - glyph.y * _fontSize - ascent;
 
     tp.paint(canvas, Offset(dx, dy));
+    tp.dispose();
   }
 
   void _paintRule(

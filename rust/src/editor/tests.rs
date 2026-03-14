@@ -1958,3 +1958,188 @@ fn test_operatorname_roundtrip() {
     let l = latex(&state);
     assert!(l.contains("operatorname"), "got: {}", l);
 }
+
+// ============================================================
+// LiveFraction tests
+// ============================================================
+
+#[test]
+fn test_live_fraction_basic() {
+    // Type "x" then LiveFraction → \frac{x}{}
+    let mut state = State::new();
+    type_str(&mut state, "x");
+    reduce::reduce(&mut state, Intent::LiveFraction);
+    assert_eq!(latex(&state), r"\frac{x}{}");
+}
+
+#[test]
+fn test_live_fraction_stops_at_binary_op() {
+    // Type "1+2" then LiveFraction → "1+\frac{2}{}"
+    let mut state = State::new();
+    type_str(&mut state, "1+2");
+    reduce::reduce(&mut state, Intent::LiveFraction);
+    assert_eq!(latex(&state), r"1+\frac{2}{}");
+}
+
+#[test]
+fn test_live_fraction_empty() {
+    // Just LiveFraction with nothing to the left → \frac{}{}
+    let mut state = State::new();
+    reduce::reduce(&mut state, Intent::LiveFraction);
+    assert_eq!(latex(&state), r"\frac{}{}");
+}
+
+#[test]
+fn test_live_fraction_multiple_symbols() {
+    // Type "xy" then LiveFraction → \frac{xy}{}
+    let mut state = State::new();
+    type_str(&mut state, "xy");
+    reduce::reduce(&mut state, Intent::LiveFraction);
+    assert_eq!(latex(&state), r"\frac{xy}{}");
+}
+
+#[test]
+fn test_live_fraction_stops_at_rel() {
+    // Type "x=y" then LiveFraction → "x=\frac{y}{}"
+    let mut state = State::new();
+    type_str(&mut state, "x=y");
+    reduce::reduce(&mut state, Intent::LiveFraction);
+    assert_eq!(latex(&state), r"x=\frac{y}{}");
+}
+
+#[test]
+fn test_live_fraction_stops_at_open_paren() {
+    // Type "1+2" then LiveFraction → stops at + → "1+\frac{2}{}"
+    let mut state = State::new();
+    type_str(&mut state, "1+2");
+    reduce::reduce(&mut state, Intent::LiveFraction);
+    assert_eq!(latex(&state), r"1+\frac{2}{}");
+}
+
+#[test]
+fn test_live_fraction_wraps_command() {
+    // \sqrt{x} then LiveFraction → \frac{\sqrt{x}}{}
+    let mut state = from_latex(r"\sqrt{x}");
+    cursor_to_end(&mut state);
+    reduce::reduce(&mut state, Intent::LiveFraction);
+    assert_eq!(latex(&state), r"\frac{\sqrt{x}}{}");
+}
+
+#[test]
+fn test_live_fraction_cursor_in_denominator() {
+    // After LiveFraction, cursor should be in the denominator
+    let mut state = State::new();
+    type_str(&mut state, "x");
+    reduce::reduce(&mut state, Intent::LiveFraction);
+    // Type in denominator
+    type_str(&mut state, "y");
+    assert_eq!(latex(&state), r"\frac{x}{y}");
+}
+
+// ============================================================
+// Auto-operator detection
+// ============================================================
+
+#[test]
+fn test_auto_operator_sin() {
+    let mut state = State::new();
+    type_str(&mut state, "sin");
+    assert_eq!(latex(&state), r"\operatorname{sin}");
+}
+
+#[test]
+fn test_auto_operator_cos() {
+    let mut state = State::new();
+    type_str(&mut state, "cos");
+    assert_eq!(latex(&state), r"\operatorname{cos}");
+}
+
+#[test]
+fn test_auto_operator_sin_then_symbol() {
+    let mut state = State::new();
+    type_str(&mut state, "sinx");
+    assert_eq!(latex(&state), r"\operatorname{sin}x");
+}
+
+#[test]
+fn test_auto_operator_partial_no_match() {
+    // "si" is not a complete operator name
+    let mut state = State::new();
+    type_str(&mut state, "si");
+    assert_eq!(latex(&state), "si");
+}
+
+#[test]
+fn test_auto_operator_ln() {
+    let mut state = State::new();
+    type_str(&mut state, "ln");
+    assert_eq!(latex(&state), r"\operatorname{ln}");
+}
+
+#[test]
+fn test_auto_operator_log() {
+    let mut state = State::new();
+    type_str(&mut state, "log");
+    assert_eq!(latex(&state), r"\operatorname{log}");
+}
+
+#[test]
+fn test_auto_operator_tan() {
+    let mut state = State::new();
+    type_str(&mut state, "tan");
+    assert_eq!(latex(&state), r"\operatorname{tan}");
+}
+
+#[test]
+fn test_auto_operator_no_false_positive() {
+    // "sin" triggers at 3 chars, then "e" is just a letter after it
+    let mut state = State::new();
+    type_str(&mut state, "sine");
+    assert_eq!(latex(&state), r"\operatorname{sin}e");
+}
+
+#[test]
+fn test_auto_operator_with_preceding_content() {
+    // "x+sin" → "x+\operatorname{sin}"
+    let mut state = State::new();
+    type_str(&mut state, "x+sin");
+    assert_eq!(latex(&state), r"x+\operatorname{sin}");
+}
+
+#[test]
+fn test_auto_operator_cursor_after_operatorname() {
+    // After auto-operator triggers, cursor should be after the OperatorName node
+    // So typing more letters goes after it, not inside it
+    let mut state = State::new();
+    type_str(&mut state, "sinx");
+    assert_eq!(latex(&state), r"\operatorname{sin}x");
+}
+
+#[test]
+fn test_auto_operator_longest_match() {
+    // "sinh" should match as a whole (not just "sin" + "h")
+    let mut state = State::new();
+    type_str(&mut state, "sinh");
+    assert_eq!(latex(&state), r"\operatorname{sinh}");
+}
+
+#[test]
+fn test_auto_operator_lim() {
+    let mut state = State::new();
+    type_str(&mut state, "lim");
+    assert_eq!(latex(&state), r"\operatorname{lim}");
+}
+
+#[test]
+fn test_auto_operator_max() {
+    let mut state = State::new();
+    type_str(&mut state, "max");
+    assert_eq!(latex(&state), r"\operatorname{max}");
+}
+
+#[test]
+fn test_auto_operator_det() {
+    let mut state = State::new();
+    type_str(&mut state, "det");
+    assert_eq!(latex(&state), r"\operatorname{det}");
+}

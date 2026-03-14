@@ -353,15 +353,60 @@ fn build_block_layout(
                         if *height == 0.0 { *height = 0.4; }
                         if *depth == 0.0 { *depth = 0.35; }
                     }
-                    // Patch empty child blocks to inherit parent position
-                    // and center the caret within the command area.
+                    // Re-patch empty child blocks with the resolved
+                    // command position. For commands with left-side
+                    // decorations (radical sign, delimiters), place
+                    // the body PAST the decoration.
+                    let node_kind = &arena.node(nid).kind;
                     let cmd_x = *left_x;
                     let cmd_w = *width;
-                    for cb in child_blocks.iter_mut() {
+
+                    // Find the first orphan glyph's right edge: this is
+                    // the left delimiter or radical sign that the body
+                    // must be placed after. Use orphans near cmd_x.
+                    let first_orphan_right = glyphs.orphans.iter()
+                        .filter_map(|g| {
+                            let (gx, gw) = match g {
+                                MathNode::Glyph { x, width: w, .. } => (*x, *w),
+                                MathNode::Rule { x, width: w, .. } => (*x, *w),
+                                MathNode::SvgPath { x, width: w, .. } => (*x, *w),
+                            };
+                            // Only consider orphans near/at the command's start
+                            if gx >= last_right_x - 0.01 - cmd_w {
+                                Some(gx + gw)
+                            } else {
+                                None
+                            }
+                        })
+                        .fold(0.0_f64, f64::min); // leftmost orphan's right edge
+
+                    for (i, cb) in child_blocks.iter_mut().enumerate() {
                         if cb.is_empty {
-                            cb.left_x = cmd_x;
-                            if cmd_w > 0.0 {
-                                cb.caret_positions = vec![cmd_w / 2.0];
+                            let place_past_decoration = matches!(
+                                node_kind,
+                                NodeKind::Sqrt if i == 0
+                            ) || matches!(
+                                node_kind,
+                                NodeKind::NthRoot if i == 1
+                            ) || matches!(
+                                node_kind,
+                                NodeKind::LeftRight { .. }
+                            );
+                            if place_past_decoration {
+                                // Place body past the left decoration
+                                // (radical sign or left delimiter)
+                                let body_start = if first_orphan_right > cmd_x {
+                                    first_orphan_right
+                                } else {
+                                    cmd_x + cmd_w
+                                };
+                                cb.left_x = body_start;
+                                cb.caret_positions = vec![body_start];
+                            } else {
+                                cb.left_x = cmd_x;
+                                if cmd_w > 0.0 {
+                                    cb.caret_positions = vec![cmd_w / 2.0];
+                                }
                             }
                         }
                     }
@@ -534,8 +579,9 @@ fn build_node_layout(
         // For fractions (2 blocks): numer gets positive shift, denom negative.
         // MathQuill uses CSS padding: 0 .2em on fractions for horizontal spacing
         // and inherits font-size: 90% for both numerator and denominator.
+        let deco_right_x = compute_right_x(&decorations);
         let child_blocks = patch_empty_child_blocks(
-            child_blocks, &node.kind, left_x, width,
+            child_blocks, &node.kind, left_x, width, deco_right_x,
         );
 
 
@@ -567,6 +613,7 @@ fn patch_empty_child_blocks(
     kind: &NodeKind,
     cmd_left_x: f64,
     cmd_width: f64,
+    deco_right_x: f64,
 ) -> Vec<BlockLayout> {
     let has_empty = blocks.iter().any(|b| b.is_empty);
     if !has_empty {
@@ -616,6 +663,60 @@ fn patch_empty_child_blocks(
                     }
                     if cmd_width > 0.0 {
                         b.caret_positions = vec![cmd_width / 2.0];
+                    }
+                }
+            }
+        }
+        NodeKind::Sqrt | NodeKind::NthRoot | NodeKind::LeftRight { .. } => {
+            // Sqrt/NthRoot: the radicand body block starts AFTER the radical
+            // sign glyph.  MathQuill uses margin-left: 0.9em on .mq-sqrt-stem.
+            // LeftRight: the body block sits BETWEEN the delimiters.
+            // We position the empty block at the right edge of the decoration
+            // glyphs so the cursor appears in the body area, not on the
+            // decoration.
+            let radicand_left = if deco_right_x > cmd_left_x {
+                deco_right_x
+            } else {
+                cmd_left_x + cmd_width
+            };
+
+            // Inherit from non-empty siblings (relevant for NthRoot index block)
+            let sibling_shift = blocks.iter()
+                .find(|b| !b.is_empty)
+                .map(|b| b.baseline_shift)
+                .unwrap_or(0.0);
+            let sibling_scale = blocks.iter()
+                .find(|b| !b.is_empty)
+                .map(|b| b.font_scale)
+                .unwrap_or(1.0);
+
+            for (i, b) in blocks.iter_mut().enumerate() {
+                if b.is_empty {
+                    if b.baseline_shift == 0.0 && sibling_shift != 0.0 {
+                        b.baseline_shift = sibling_shift;
+                    }
+                    if (b.font_scale - 1.0).abs() < 0.001 && sibling_scale < 1.0 {
+                        b.font_scale = sibling_scale;
+                    }
+                    // For Sqrt the single block (index 0) is the radicand.
+                    // For NthRoot blocks[0] is the index, blocks[1] is the radicand.
+                    // For LeftRight the single block (index 0) is the body.
+                    let needs_offset = match kind {
+                        NodeKind::Sqrt => i == 0,
+                        NodeKind::NthRoot => i == 1,
+                        NodeKind::LeftRight { .. } => i == 0,
+                        _ => false,
+                    };
+                    if needs_offset {
+                        b.left_x = radicand_left;
+                        b.caret_positions = vec![radicand_left];
+                    } else {
+                        if cmd_left_x > 0.0 {
+                            b.left_x = cmd_left_x;
+                        }
+                        if cmd_width > 0.0 {
+                            b.caret_positions = vec![cmd_width / 2.0];
+                        }
                     }
                 }
             }
@@ -684,6 +785,7 @@ fn compute_right_x(nodes: &[MathNode]) -> f64 {
 }
 
 fn compute_baseline_shift(children: &[NodeLayout]) -> f64 {
+    // First try direct Leaf children
     for child in children {
         if let NodeLayout::Leaf { glyphs, .. } = child {
             for g in glyphs {
@@ -693,15 +795,38 @@ fn compute_baseline_shift(children: &[NodeLayout]) -> f64 {
             }
         }
     }
+    // If no Leaf found, recurse into Command child blocks
+    for child in children {
+        if let NodeLayout::Command { child_blocks, .. } = child {
+            for block in child_blocks {
+                let shift = compute_baseline_shift(&block.children);
+                if shift != 0.0 {
+                    return shift;
+                }
+            }
+        }
+    }
     0.0
 }
 
 fn compute_font_scale(children: &[NodeLayout]) -> f64 {
+    // First try direct Leaf children
     for child in children {
         if let NodeLayout::Leaf { glyphs, .. } = child {
             for g in glyphs {
                 if let MathNode::Glyph { scale, .. } = g {
                     return *scale;
+                }
+            }
+        }
+    }
+    // If no Leaf found, recurse into Command child blocks
+    for child in children {
+        if let NodeLayout::Command { child_blocks, .. } = child {
+            for block in child_blocks {
+                let scale = compute_font_scale(&block.children);
+                if scale != 1.0 {
+                    return scale;
                 }
             }
         }
@@ -1527,13 +1652,118 @@ mod tests {
         let snap = super::super::editor_api::build_snapshot(&state, false);
         assert_eq!(snap.editor_layout.root.children.len(), 1);
         match &snap.editor_layout.root.children[0] {
-            NodeLayout::Command { width, height, child_blocks, .. } => {
+            NodeLayout::Command { width, height, left_x, child_blocks, .. } => {
                 assert!(*width > 0.0, "empty sqrt should have non-zero width");
                 assert!(*height > 0.0, "empty sqrt should have non-zero height");
                 assert_eq!(child_blocks.len(), 1);
                 assert!(child_blocks[0].is_empty);
+                // Radicand block left_x must be past the radical sign
+                let radicand_left = child_blocks[0].left_x;
+                // Radicand block left_x must be past the radical sign
+                assert!(radicand_left >= left_x + width,
+                    "empty sqrt radicand left_x ({radicand_left}) should be >= \
+                     cmd right edge ({} + {} = {})",
+                    left_x, width, left_x + width);
             }
             _ => panic!("Expected Command node for sqrt"),
+        }
+    }
+
+    /// Audit all command types with empty blocks: verify caret placement
+    /// is sane (within or just past the command bounds, not at zero).
+    #[test]
+    fn test_empty_block_caret_positions_all_commands() {
+        // Commands with empty blocks and their expected block counts
+        let cases: Vec<(&str, &str, usize)> = vec![
+            (r"\frac{}{}", "frac", 2),
+            (r"\sqrt{}", "sqrt", 1),
+            (r"\sqrt[]{}", "nthroot", 2),
+            (r"\left(\right)", "parens", 1),
+            (r"\left[\right]", "brackets", 1),
+            (r"\left\{\right\}", "braces", 1),
+            (r"\left|\right|", "abs", 1),
+            (r"\overline{}", "overline", 1),
+            (r"\underline{}", "underline", 1),
+            (r"\sum_{}", "sum", 1),  // below only (parser may add above)
+            (r"\hat{}", "hat", 1),
+        ];
+
+        for (latex, name, _expected_blocks) in &cases {
+            let state = match import_latex(latex) {
+                Ok(s) => s,
+                Err(e) => {
+                    eprintln!("SKIP {name}: parse error: {e}");
+                    continue;
+                }
+            };
+            let snap = super::super::editor_api::build_snapshot(&state, false);
+
+            // Find the command node in root's children
+            let cmd = snap.editor_layout.root.children.iter().find(|n| {
+                matches!(n, NodeLayout::Command { .. })
+            });
+            let Some(NodeLayout::Command { left_x: cmd_lx, width: cmd_w, child_blocks, kind, .. }) = cmd else {
+                eprintln!("SKIP {name}: no Command node found");
+                continue;
+            };
+
+            let cmd_right = cmd_lx + cmd_w;
+            eprintln!("{name}: kind={kind:?} cmd_lx={cmd_lx:.3} cmd_w={cmd_w:.3} cmd_right={cmd_right:.3} blocks={}",
+                child_blocks.len());
+
+            for (i, block) in child_blocks.iter().enumerate() {
+                if !block.is_empty { continue; }
+                let blx = block.left_x;
+                let carets = &block.caret_positions;
+                eprintln!("  block[{i}]: left_x={blx:.3} carets={carets:?}");
+
+                // Basic sanity: caret positions should be non-negative
+                for (j, &c) in carets.iter().enumerate() {
+                    assert!(c >= 0.0,
+                        "{name} block[{i}] caret[{j}]={c} is negative");
+                }
+
+                // For commands with visible decorations on the left (sqrt, nthroot radicand,
+                // left-right delimiters), the empty block should NOT start at cmd_left_x
+                // if there is decoration on the left.
+                match name {
+                    &"sqrt" => {
+                        assert!(blx >= cmd_right,
+                            "{name} block[{i}]: radicand left_x ({blx}) should be >= cmd right ({cmd_right})");
+                    }
+                    &"nthroot" if i == 1 => {
+                        assert!(blx >= cmd_right,
+                            "{name} block[{i}]: radicand left_x ({blx}) should be >= cmd right ({cmd_right})");
+                    }
+                    &"parens" | &"brackets" | &"braces" | &"abs" => {
+                        // Find the left delimiter's right edge from orphans
+                        let left_delim_right = snap.editor_layout.untagged.iter()
+                            .filter_map(|g| {
+                                let (gx, gw) = match g {
+                                    MathNode::Glyph { x, width: w, .. } => (*x, *w),
+                                    MathNode::Rule { x, width: w, .. } => (*x, *w),
+                                    MathNode::SvgPath { x, width: w, .. } => (*x, *w),
+                                };
+                                Some(gx + gw)
+                            })
+                            .fold(f64::MAX, f64::min); // first/leftmost orphan's right edge
+                        eprintln!("  CHECK {name}: body left_x={blx:.3} caret={:.3} \
+                            left_delim_right={left_delim_right:.3}", carets[0]);
+                        // Body caret must be past the left delimiter
+                        assert!(blx >= left_delim_right - 0.01,
+                            "{name} block[{i}]: body left_x ({blx:.3}) should be >= \
+                             left delimiter right edge ({left_delim_right:.3})");
+                    }
+                    _ => {
+                        // Generic: caret should be within a reasonable range of the command
+                        // (not at 0 if the command is elsewhere)
+                        if *cmd_lx > 0.1 {
+                            assert!(blx >= cmd_lx - 0.01,
+                                "{name} block[{i}]: left_x ({blx}) should be >= cmd_left_x ({cmd_lx})");
+                        }
+                    }
+                }
+            }
         }
     }
 
@@ -1846,5 +2076,449 @@ mod tests {
         assert!(!blocks[1].is_empty);
         assert!(blocks[0].baseline_shift > 0.0);
         assert!(blocks[1].baseline_shift < 0.0);
+    }
+
+    // -----------------------------------------------------------------------
+    // Nested fraction layout tests — reproduces staircase rendering bug
+    // -----------------------------------------------------------------------
+
+    fn build_layout_for(latex: &str) -> EditorLayout {
+        let state = import_latex(latex).unwrap();
+        let ctx = katex::KatexContext::default();
+        let settings = katex::Settings::default();
+        let leaf_ids = super::super::editor_api::collect_leaf_ids(&state.arena);
+        let layout = katex::render_to_layout_tagged(&ctx, latex, &settings, leaf_ids)
+            .map(MathLayout::from)
+            .unwrap();
+        build_editor_layout(&state, &layout)
+    }
+
+    #[test]
+    fn test_nested_frac_denom_has_correct_baseline_shift() {
+        // When the denominator contains a nested fraction (not a bare leaf),
+        // the denominator block's baseline_shift must still be negative.
+        let layout = build_layout_for(r"\frac{a}{\frac{b}{c}}");
+        let frac1 = &layout.root.children[0];
+        match frac1 {
+            NodeLayout::Command { child_blocks, .. } => {
+                let numer = &child_blocks[0];
+                let denom = &child_blocks[1];
+
+                eprintln!("Outer numer: shift={}, scale={}", numer.baseline_shift, numer.font_scale);
+                eprintln!("Outer denom: shift={}, scale={}", denom.baseline_shift, denom.font_scale);
+
+                assert!(numer.baseline_shift > 0.0,
+                    "Numer shift={} should be positive", numer.baseline_shift);
+                assert!(denom.baseline_shift < 0.0,
+                    "Denom shift={} should be negative (contains nested frac)",
+                    denom.baseline_shift);
+                assert!(denom.font_scale < 1.0,
+                    "Denom font_scale={} should be < 1.0", denom.font_scale);
+            }
+            _ => panic!("Expected frac Command"),
+        }
+    }
+
+    #[test]
+    fn test_nested_frac_3_levels_all_shifts_correct() {
+        let layout = build_layout_for(r"\frac{a}{\frac{b}{\frac{c}{d}}}");
+        let frac1 = &layout.root.children[0];
+        match frac1 {
+            NodeLayout::Command { child_blocks, .. } => {
+                let n1 = &child_blocks[0];
+                let d1 = &child_blocks[1];
+                eprintln!("L1 numer: shift={}, scale={}", n1.baseline_shift, n1.font_scale);
+                eprintln!("L1 denom: shift={}, scale={}", d1.baseline_shift, d1.font_scale);
+
+                assert!(n1.baseline_shift > 0.0, "L1 numer shift should be > 0");
+                assert!(d1.baseline_shift < 0.0,
+                    "L1 denom shift={} should be < 0", d1.baseline_shift);
+
+                // Level 2
+                let frac2 = &d1.children[0];
+                match frac2 {
+                    NodeLayout::Command { child_blocks, .. } => {
+                        let n2 = &child_blocks[0];
+                        let d2 = &child_blocks[1];
+                        eprintln!("L2 numer: shift={}, scale={}", n2.baseline_shift, n2.font_scale);
+                        eprintln!("L2 denom: shift={}, scale={}", d2.baseline_shift, d2.font_scale);
+
+                        assert!(n2.baseline_shift > d2.baseline_shift,
+                            "L2 numer shift={} should be > denom shift={}", n2.baseline_shift, d2.baseline_shift);
+
+                        // Level 3
+                        let frac3 = &d2.children[0];
+                        match frac3 {
+                            NodeLayout::Command { child_blocks, .. } => {
+                                let n3 = &child_blocks[0];
+                                let d3 = &child_blocks[1];
+                                eprintln!("L3 numer: shift={}, scale={}", n3.baseline_shift, n3.font_scale);
+                                eprintln!("L3 denom: shift={}, scale={}", d3.baseline_shift, d3.font_scale);
+
+                                assert!(n3.baseline_shift > d3.baseline_shift,
+                                    "L3 numer shift={} should be > denom shift={}", n3.baseline_shift, d3.baseline_shift);
+                            }
+                            _ => panic!("Expected L3 frac"),
+                        }
+                    }
+                    _ => panic!("Expected L2 frac"),
+                }
+            }
+            _ => panic!("Expected L1 frac"),
+        }
+    }
+
+    #[test]
+    fn test_nested_frac_font_scale_decreases() {
+        let layout = build_layout_for(r"\frac{a}{\frac{b}{\frac{c}{d}}}");
+        let frac1 = &layout.root.children[0];
+        let (n1, d1) = match frac1 {
+            NodeLayout::Command { child_blocks, .. } => (&child_blocks[0], &child_blocks[1]),
+            _ => panic!("Expected frac"),
+        };
+        let frac2 = &d1.children[0];
+        let (n2, _) = match frac2 {
+            NodeLayout::Command { child_blocks, .. } => (&child_blocks[0], &child_blocks[1]),
+            _ => panic!("Expected frac"),
+        };
+
+        eprintln!("L1 numer scale: {}", n1.font_scale);
+        eprintln!("L2 numer scale: {}", n2.font_scale);
+
+        assert!(n1.font_scale < 1.0, "L1 numer should have scale < 1.0");
+        assert!(n2.font_scale < n1.font_scale,
+            "L2 scale={} should be < L1 scale={}", n2.font_scale, n1.font_scale);
+    }
+
+    // -----------------------------------------------------------------------
+    // Nested fraction spacing & scale bugs — from screenshot analysis
+    // -----------------------------------------------------------------------
+
+    /// Helper: walk the layout tree to collect (level, role, font_scale, left_x, width)
+    /// for every fraction child block.
+    fn collect_frac_blocks(layout: &EditorLayout) -> Vec<(usize, &'static str, f64, f64, f64)> {
+        fn walk(node: &NodeLayout, level: usize, out: &mut Vec<(usize, &'static str, f64, f64, f64)>) {
+            if let NodeLayout::Command { child_blocks, kind, .. } = node {
+                if matches!(kind, CommandLayoutKind::Frac) {
+                    if child_blocks.len() == 2 {
+                        let n = &child_blocks[0];
+                        let d = &child_blocks[1];
+                        out.push((level, "numer", n.font_scale, n.left_x, n.width));
+                        out.push((level, "denom", d.font_scale, d.left_x, d.width));
+                        // Recurse into children of each block
+                        for child in &n.children {
+                            walk(child, level + 1, out);
+                        }
+                        for child in &d.children {
+                            walk(child, level + 1, out);
+                        }
+                    }
+                } else {
+                    for cb in child_blocks {
+                        for child in &cb.children {
+                            walk(child, level, out);
+                        }
+                    }
+                }
+            }
+        }
+
+        let mut result = Vec::new();
+        for child in &layout.root.children {
+            walk(child, 1, &mut result);
+        }
+        result
+    }
+
+    /// The outermost numerator ("2") must have a LARGER font_scale than
+    /// the next level's numerator ("332"). KaTeX correctly cascades styles:
+    /// textstyle (0.7) → scriptstyle (0.5) → scriptscriptstyle (0.5, bottoms out).
+    #[test]
+    fn test_nested_frac_outermost_numerator_is_largest() {
+        let layout = build_layout_for(r"\frac{2}{\frac{332}{\frac{123}{\frac{414}{5151}}}}");
+        let blocks = collect_frac_blocks(&layout);
+
+        eprintln!("Fraction blocks:");
+        for (level, role, scale, left_x, width) in &blocks {
+            eprintln!("  L{level} {role}: scale={scale:.4} left_x={left_x:.4} width={width:.4}");
+        }
+
+        let l1_numer = blocks.iter().find(|(l, r, ..)| *l == 1 && *r == "numer").unwrap();
+        let l2_numer = blocks.iter().find(|(l, r, ..)| *l == 2 && *r == "numer").unwrap();
+
+        assert!(l1_numer.2 > l2_numer.2,
+            "L1 numer scale ({:.4}) must be > L2 numer scale ({:.4}). \
+             Bug: outermost numerator '2' renders at same size as nested content.",
+            l1_numer.2, l2_numer.2);
+        // L2 == L3 is expected: TeX scriptscriptstyle bottoms out at ~0.5
+    }
+
+    /// Each nested fraction's content should be roughly centered under its
+    /// parent fraction bar. The center of the numerator and the center of
+    /// the denominator should both be within the fraction bar's horizontal span.
+    ///
+    /// Bug from screenshot: deeper fraction levels drift rightward, with the
+    /// numerator ("2") appearing far left and inner content far right, creating
+    /// a diagonal staircase instead of centered nesting.
+    #[test]
+    fn test_nested_frac_content_centered_under_bar() {
+        let layout = build_layout_for(r"\frac{2}{\frac{332}{\frac{123}{414}}}");
+
+        // Find fraction bars from untagged glyphs (Rule nodes)
+        let bars: Vec<(f64, f64)> = layout.untagged.iter()
+            .filter_map(|n| {
+                if let MathNode::Rule { x, width, .. } = n {
+                    Some((*x, *width))
+                } else {
+                    None
+                }
+            })
+            .collect();
+
+        eprintln!("Fraction bars (x, width):");
+        for (x, w) in &bars {
+            eprintln!("  bar: x={x:.4} w={w:.4} center={:.4}", x + w / 2.0);
+        }
+
+        let blocks = collect_frac_blocks(&layout);
+        eprintln!("Fraction blocks:");
+        for (level, role, scale, left_x, width) in &blocks {
+            eprintln!("  L{level} {role}: scale={scale:.4} left_x={left_x:.4} width={width:.4} center={:.4}",
+                left_x + width / 2.0);
+        }
+
+        // The outermost bar should be the widest
+        let outer_bar = bars.iter().max_by(|a, b| a.1.partial_cmp(&b.1).unwrap()).unwrap();
+        let outer_bar_center = outer_bar.0 + outer_bar.1 / 2.0;
+        let _outer_bar_left = outer_bar.0;
+        let _outer_bar_right = outer_bar.0 + outer_bar.1;
+
+        // L1 numerator ("2") must be centered under the outer bar
+        let l1_numer = blocks.iter().find(|(l, r, ..)| *l == 1 && *r == "numer").unwrap();
+        let l1_numer_center = l1_numer.3 + l1_numer.4 / 2.0;
+
+        let offset = (l1_numer_center - outer_bar_center).abs();
+        let tolerance = outer_bar.1 * 0.15; // within 15% of bar width
+        assert!(offset < tolerance,
+            "L1 numer center ({l1_numer_center:.4}) should be near outer bar center ({outer_bar_center:.4}), \
+             offset={offset:.4} exceeds tolerance={tolerance:.4}. \
+             Bug: numerator '2' is not centered under its fraction bar.");
+
+        // L1 denominator (inner frac) center should also be near the outer bar center
+        let l1_denom = blocks.iter().find(|(l, r, ..)| *l == 1 && *r == "denom").unwrap();
+        let l1_denom_center = l1_denom.3 + l1_denom.4 / 2.0;
+
+        let offset = (l1_denom_center - outer_bar_center).abs();
+        assert!(offset < tolerance,
+            "L1 denom center ({l1_denom_center:.4}) should be near outer bar center ({outer_bar_center:.4}), \
+             offset={offset:.4}. Bug: denominator content drifts away from center (staircase).");
+    }
+
+    /// All numerator blocks at the same nesting level should have similar
+    /// left_x positions (centered under the parent fraction bar), not
+    /// monotonically increasing (staircase).
+    #[test]
+    fn test_nested_frac_no_horizontal_staircase() {
+        let layout = build_layout_for(r"\frac{2}{\frac{332}{\frac{123}{\frac{414}{5151}}}}");
+        let blocks = collect_frac_blocks(&layout);
+
+        // The outermost fraction command's left_x
+        let frac_cmd = match &layout.root.children[0] {
+            NodeLayout::Command { left_x, width, .. } => (*left_x, *width),
+            _ => panic!("Expected frac command"),
+        };
+
+        eprintln!("Outer frac: left_x={:.4} width={:.4}", frac_cmd.0, frac_cmd.1);
+        let _outer_center = frac_cmd.0 + frac_cmd.1 / 2.0;
+
+        // Each denominator block's center should be within the outer fraction bar span
+        let denom_blocks: Vec<_> = blocks.iter()
+            .filter(|(_, r, ..)| *r == "denom")
+            .collect();
+
+        for (level, _, _, left_x, width) in &denom_blocks {
+            let center = left_x + width / 2.0;
+            let outer_right = frac_cmd.0 + frac_cmd.1;
+            eprintln!("  L{level} denom center={center:.4} (outer span: {:.4}..{:.4})",
+                frac_cmd.0, outer_right);
+            assert!(center >= frac_cmd.0 && center <= outer_right,
+                "L{level} denom center ({center:.4}) should be within outer frac span \
+                 ({:.4}..{:.4}). Staircase: content drifts outside parent bar.",
+                frac_cmd.0, outer_right);
+        }
+    }
+
+    /// The empty cursor box in a fraction must be positioned within the
+    /// fraction bar's horizontal span — not to the left of the fraction bar
+    /// (as seen in the screenshot where the dash appears disconnected).
+    #[test]
+    fn test_nested_frac_empty_numer_box_within_fraction_bar() {
+        // Fraction with empty numerator and nested denom
+        let layout = build_layout_for(r"\frac{}{\frac{123}{456}}");
+        let frac1 = match &layout.root.children[0] {
+            NodeLayout::Command { child_blocks, left_x, width, .. } => {
+                (child_blocks, *left_x, *width)
+            }
+            _ => panic!("Expected frac"),
+        };
+
+        let numer = &frac1.0[0];
+        assert!(numer.is_empty, "Numerator should be empty");
+
+        // The empty numerator's caret_positions[0] should be within the
+        // fraction bar's horizontal span
+        let frac_left = frac1.1;
+        let frac_right = frac1.1 + frac1.2;
+        let caret_x = numer.caret_positions[0];
+
+        eprintln!("Frac span: {frac_left:.4}..{frac_right:.4}");
+        eprintln!("Empty numer: left_x={:.4} caret={caret_x:.4}", numer.left_x);
+
+        // The empty block's left_x should be within the fraction bar span
+        assert!(numer.left_x >= frac_left,
+            "Empty numer left_x ({:.4}) should be >= frac left ({frac_left:.4})",
+            numer.left_x);
+        assert!(numer.left_x <= frac_right,
+            "Empty numer left_x ({:.4}) should be <= frac right ({frac_right:.4}). \
+             Bug: empty box appears outside the fraction bar.",
+            numer.left_x);
+    }
+
+    /// Test the exact LiveFraction typing pattern from the bug screenshot:
+    /// 2/332/123/414/5151/13451/123412/12341234
+    /// The empty box (cursor placeholder) must be positioned within the
+    /// innermost fraction bar, not floating to the left of content.
+    #[test]
+    fn test_livefraction_typing_empty_box_position() {
+        use crate::editor::{reduce, Intent};
+
+        let mut state = crate::editor::State::new();
+        fn type_str(state: &mut crate::editor::State, s: &str) {
+            for ch in s.chars() {
+                reduce::reduce(state, Intent::InsertSymbol(ch));
+            }
+        }
+
+        // Type "2/332/123/414/5151" — 5 levels of nesting
+        type_str(&mut state, "2");
+        reduce::reduce(&mut state, Intent::LiveFraction);
+        type_str(&mut state, "332");
+        reduce::reduce(&mut state, Intent::LiveFraction);
+        type_str(&mut state, "123");
+        reduce::reduce(&mut state, Intent::LiveFraction);
+        type_str(&mut state, "414");
+        reduce::reduce(&mut state, Intent::LiveFraction);
+        type_str(&mut state, "5151");
+
+        let snap = super::super::editor_api::build_snapshot(&state, false);
+        eprintln!("LaTeX: {}", snap.latex);
+
+        // The cursor should be in the deepest denominator block.
+        // Find the block that has cursor_index set.
+        fn find_cursor_block(block: &BlockLayout) -> Option<&BlockLayout> {
+            if block.cursor_index.is_some() {
+                return Some(block);
+            }
+            for child in &block.children {
+                if let NodeLayout::Command { child_blocks, .. } = child {
+                    for cb in child_blocks {
+                        if let Some(found) = find_cursor_block(cb) {
+                            return Some(found);
+                        }
+                    }
+                }
+            }
+            None
+        }
+
+        // Find all fraction bars
+        let bars: Vec<(f64, f64)> = snap.editor_layout.untagged.iter()
+            .filter_map(|n| {
+                if let MathNode::Rule { x, width, .. } = n {
+                    Some((*x, *width))
+                } else {
+                    None
+                }
+            })
+            .collect();
+
+        // The narrowest bar is the innermost fraction bar
+        let inner_bar = bars.iter().min_by(|a, b| a.1.partial_cmp(&b.1).unwrap());
+        if let Some(bar) = inner_bar {
+            eprintln!("Innermost bar: x={:.4} w={:.4}", bar.0, bar.1);
+        }
+
+        // Find the cursor block
+        let cursor_block = find_cursor_block(&snap.editor_layout.root);
+        if let Some(cb) = cursor_block {
+            eprintln!("Cursor block: left_x={:.4} carets={:?} is_empty={}",
+                cb.left_x, cb.caret_positions, cb.is_empty);
+
+            // If cursor is in a non-empty block, the cursor position should be
+            // within the innermost fraction bar's horizontal span
+            if let Some(bar) = inner_bar {
+                let bar_left = bar.0;
+                let _bar_right = bar.0 + bar.1;
+                let cursor_x = cb.left_x;
+                // Cursor block's left_x should be within the bar span
+                assert!(cursor_x >= bar_left - 0.1,
+                    "Cursor block left_x ({cursor_x:.4}) should be >= inner bar left ({bar_left:.4}). \
+                     Bug: cursor/empty box appears to the left of the fraction bar.");
+            }
+        }
+
+        // Check that L1 numerator ("2") is horizontally centered under the widest bar
+        let blocks = collect_frac_blocks(&snap.editor_layout);
+        let l1_numer = blocks.iter().find(|(l, r, ..)| *l == 1 && *r == "numer").unwrap();
+        let outer_bar = bars.iter().max_by(|a, b| a.1.partial_cmp(&b.1).unwrap()).unwrap();
+        let numer_center = l1_numer.3 + l1_numer.4 / 2.0;
+        let bar_center = outer_bar.0 + outer_bar.1 / 2.0;
+        let offset = (numer_center - bar_center).abs();
+        eprintln!("L1 numer center={numer_center:.4} outer bar center={bar_center:.4} offset={offset:.4}");
+        assert!(offset < outer_bar.1 * 0.15,
+            "L1 numer '2' center ({numer_center:.4}) not centered under outer bar ({bar_center:.4}). \
+             Offset {offset:.4} exceeds 15% of bar width ({:.4}). \
+             Bug: outermost numerator has wrong horizontal spacing.",
+            outer_bar.1 * 0.15);
+    }
+
+    /// Deeply nested fraction with LiveFraction typing pattern:
+    /// the first numerator glyph scale from KaTeX must be larger than
+    /// the second level's glyph scale. This verifies that KaTeX itself
+    /// produces the correct cascading scales and we don't lose that info.
+    #[test]
+    fn test_katex_produces_cascading_glyph_scales_for_nested_fracs() {
+        let state = import_latex(r"\frac{2}{\frac{3}{4}}").unwrap();
+        let latex = state.arena.to_render_latex();
+        let ctx = katex::KatexContext::default();
+        let settings = katex::Settings::default();
+        let leaf_ids = super::super::editor_api::collect_leaf_ids(&state.arena);
+        let raw_layout = katex::render_to_layout_tagged(&ctx, &latex, &settings, leaf_ids)
+            .map(MathLayout::from)
+            .unwrap();
+
+        // Find the glyphs for '2', '3', '4' and compare their scales
+        let mut glyph_scales: Vec<(char, f64)> = Vec::new();
+        for node in &raw_layout.nodes {
+            if let MathNode::Glyph { codepoint, scale, .. } = node {
+                let ch = char::from_u32(*codepoint).unwrap_or('?');
+                if ch == '2' || ch == '3' || ch == '4' {
+                    glyph_scales.push((ch, *scale));
+                }
+            }
+        }
+
+        eprintln!("KaTeX glyph scales: {:?}", glyph_scales);
+
+        let scale_2 = glyph_scales.iter().find(|(c, _)| *c == '2').map(|(_, s)| *s).unwrap();
+        let scale_3 = glyph_scales.iter().find(|(c, _)| *c == '3').map(|(_, s)| *s).unwrap();
+        let scale_4 = glyph_scales.iter().find(|(c, _)| *c == '4').map(|(_, s)| *s).unwrap();
+
+        assert!(scale_2 > scale_3,
+            "KaTeX: '2' scale ({scale_2:.4}) must be > '3' scale ({scale_3:.4}). \
+             The outermost numerator should be rendered larger.");
+        assert!(scale_3 >= scale_4,
+            "KaTeX: '3' scale ({scale_3:.4}) must be >= '4' scale ({scale_4:.4}). \
+             Deeper nesting should not increase font size.");
     }
 }

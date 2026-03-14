@@ -31,6 +31,10 @@ pub enum Intent {
     // --- Structural ---
     /// Wrap current selection in a command (frac, sqrt, etc.)
     WrapInCommand(CommandKind),
+    /// MathQuill-style "LiveFraction": collect content to the left of the cursor
+    /// (stopping at binary/relational/open/punct operators or block start),
+    /// wrap it into the numerator of a new \frac, and place cursor in denominator.
+    LiveFraction,
 
     // --- LaTeX command input ---
     /// Begin command input mode: insert a LatexCommandInput node at cursor.

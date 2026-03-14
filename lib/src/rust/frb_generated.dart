@@ -458,72 +458,74 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       case 1:
         return EditorIntent_InsertFrac();
       case 2:
-        return EditorIntent_InsertSqrt();
+        return EditorIntent_LiveFraction();
       case 3:
-        return EditorIntent_InsertNthRoot();
+        return EditorIntent_InsertSqrt();
       case 4:
-        return EditorIntent_InsertSup();
+        return EditorIntent_InsertNthRoot();
       case 5:
-        return EditorIntent_InsertSub();
+        return EditorIntent_InsertSup();
       case 6:
-        return EditorIntent_InsertParentheses();
+        return EditorIntent_InsertSub();
       case 7:
-        return EditorIntent_InsertBrackets();
+        return EditorIntent_InsertParentheses();
       case 8:
-        return EditorIntent_InsertBraces();
+        return EditorIntent_InsertBrackets();
       case 9:
-        return EditorIntent_InsertAbs();
+        return EditorIntent_InsertBraces();
       case 10:
-        return EditorIntent_InsertSum();
+        return EditorIntent_InsertAbs();
       case 11:
-        return EditorIntent_InsertProduct();
+        return EditorIntent_InsertSum();
       case 12:
-        return EditorIntent_InsertIntegral();
+        return EditorIntent_InsertProduct();
       case 13:
-        return EditorIntent_InsertLimit();
+        return EditorIntent_InsertIntegral();
       case 14:
-        return EditorIntent_InsertOverline();
+        return EditorIntent_InsertLimit();
       case 15:
-        return EditorIntent_InsertUnderline();
+        return EditorIntent_InsertOverline();
       case 16:
-        return EditorIntent_InsertText();
+        return EditorIntent_InsertUnderline();
       case 17:
-        return EditorIntent_InsertCommandInput();
+        return EditorIntent_InsertText();
       case 18:
-        return EditorIntent_CommandInputType(ch: dco_decode_String(raw[1]));
+        return EditorIntent_InsertCommandInput();
       case 19:
-        return EditorIntent_CommandInputBackspace();
+        return EditorIntent_CommandInputType(ch: dco_decode_String(raw[1]));
       case 20:
-        return EditorIntent_ResolveCommandInput();
+        return EditorIntent_CommandInputBackspace();
       case 21:
-        return EditorIntent_CancelCommandInput();
+        return EditorIntent_ResolveCommandInput();
       case 22:
-        return EditorIntent_MoveLeft();
+        return EditorIntent_CancelCommandInput();
       case 23:
-        return EditorIntent_MoveRight();
+        return EditorIntent_MoveLeft();
       case 24:
-        return EditorIntent_EscapeRight();
+        return EditorIntent_MoveRight();
       case 25:
-        return EditorIntent_MoveUp();
+        return EditorIntent_EscapeRight();
       case 26:
-        return EditorIntent_MoveDown();
+        return EditorIntent_MoveUp();
       case 27:
-        return EditorIntent_MoveToStart();
+        return EditorIntent_MoveDown();
       case 28:
-        return EditorIntent_MoveToEnd();
+        return EditorIntent_MoveToStart();
       case 29:
-        return EditorIntent_SelectLeft();
+        return EditorIntent_MoveToEnd();
       case 30:
-        return EditorIntent_SelectRight();
+        return EditorIntent_SelectLeft();
       case 31:
-        return EditorIntent_SelectAll();
+        return EditorIntent_SelectRight();
       case 32:
-        return EditorIntent_DeleteBackward();
+        return EditorIntent_SelectAll();
       case 33:
-        return EditorIntent_DeleteForward();
+        return EditorIntent_DeleteBackward();
       case 34:
-        return EditorIntent_SetLatex(latex: dco_decode_String(raw[1]));
+        return EditorIntent_DeleteForward();
       case 35:
+        return EditorIntent_SetLatex(latex: dco_decode_String(raw[1]));
+      case 36:
         return EditorIntent_TapBlock(
           blockId: dco_decode_u_32(raw[1]),
           caretIndex: dco_decode_u_32(raw[2]),
@@ -898,74 +900,76 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       case 1:
         return EditorIntent_InsertFrac();
       case 2:
-        return EditorIntent_InsertSqrt();
+        return EditorIntent_LiveFraction();
       case 3:
-        return EditorIntent_InsertNthRoot();
+        return EditorIntent_InsertSqrt();
       case 4:
-        return EditorIntent_InsertSup();
+        return EditorIntent_InsertNthRoot();
       case 5:
-        return EditorIntent_InsertSub();
+        return EditorIntent_InsertSup();
       case 6:
-        return EditorIntent_InsertParentheses();
+        return EditorIntent_InsertSub();
       case 7:
-        return EditorIntent_InsertBrackets();
+        return EditorIntent_InsertParentheses();
       case 8:
-        return EditorIntent_InsertBraces();
+        return EditorIntent_InsertBrackets();
       case 9:
-        return EditorIntent_InsertAbs();
+        return EditorIntent_InsertBraces();
       case 10:
-        return EditorIntent_InsertSum();
+        return EditorIntent_InsertAbs();
       case 11:
-        return EditorIntent_InsertProduct();
+        return EditorIntent_InsertSum();
       case 12:
-        return EditorIntent_InsertIntegral();
+        return EditorIntent_InsertProduct();
       case 13:
-        return EditorIntent_InsertLimit();
+        return EditorIntent_InsertIntegral();
       case 14:
-        return EditorIntent_InsertOverline();
+        return EditorIntent_InsertLimit();
       case 15:
-        return EditorIntent_InsertUnderline();
+        return EditorIntent_InsertOverline();
       case 16:
-        return EditorIntent_InsertText();
+        return EditorIntent_InsertUnderline();
       case 17:
-        return EditorIntent_InsertCommandInput();
+        return EditorIntent_InsertText();
       case 18:
+        return EditorIntent_InsertCommandInput();
+      case 19:
         var var_ch = sse_decode_String(deserializer);
         return EditorIntent_CommandInputType(ch: var_ch);
-      case 19:
-        return EditorIntent_CommandInputBackspace();
       case 20:
-        return EditorIntent_ResolveCommandInput();
+        return EditorIntent_CommandInputBackspace();
       case 21:
-        return EditorIntent_CancelCommandInput();
+        return EditorIntent_ResolveCommandInput();
       case 22:
-        return EditorIntent_MoveLeft();
+        return EditorIntent_CancelCommandInput();
       case 23:
-        return EditorIntent_MoveRight();
+        return EditorIntent_MoveLeft();
       case 24:
-        return EditorIntent_EscapeRight();
+        return EditorIntent_MoveRight();
       case 25:
-        return EditorIntent_MoveUp();
+        return EditorIntent_EscapeRight();
       case 26:
-        return EditorIntent_MoveDown();
+        return EditorIntent_MoveUp();
       case 27:
-        return EditorIntent_MoveToStart();
+        return EditorIntent_MoveDown();
       case 28:
-        return EditorIntent_MoveToEnd();
+        return EditorIntent_MoveToStart();
       case 29:
-        return EditorIntent_SelectLeft();
+        return EditorIntent_MoveToEnd();
       case 30:
-        return EditorIntent_SelectRight();
+        return EditorIntent_SelectLeft();
       case 31:
-        return EditorIntent_SelectAll();
+        return EditorIntent_SelectRight();
       case 32:
-        return EditorIntent_DeleteBackward();
+        return EditorIntent_SelectAll();
       case 33:
-        return EditorIntent_DeleteForward();
+        return EditorIntent_DeleteBackward();
       case 34:
+        return EditorIntent_DeleteForward();
+      case 35:
         var var_latex = sse_decode_String(deserializer);
         return EditorIntent_SetLatex(latex: var_latex);
-      case 35:
+      case 36:
         var var_blockId = sse_decode_u_32(deserializer);
         var var_caretIndex = sse_decode_u_32(deserializer);
         return EditorIntent_TapBlock(
@@ -1416,79 +1420,81 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
         sse_encode_String(ch, serializer);
       case EditorIntent_InsertFrac():
         sse_encode_i_32(1, serializer);
-      case EditorIntent_InsertSqrt():
+      case EditorIntent_LiveFraction():
         sse_encode_i_32(2, serializer);
-      case EditorIntent_InsertNthRoot():
+      case EditorIntent_InsertSqrt():
         sse_encode_i_32(3, serializer);
-      case EditorIntent_InsertSup():
+      case EditorIntent_InsertNthRoot():
         sse_encode_i_32(4, serializer);
-      case EditorIntent_InsertSub():
+      case EditorIntent_InsertSup():
         sse_encode_i_32(5, serializer);
-      case EditorIntent_InsertParentheses():
+      case EditorIntent_InsertSub():
         sse_encode_i_32(6, serializer);
-      case EditorIntent_InsertBrackets():
+      case EditorIntent_InsertParentheses():
         sse_encode_i_32(7, serializer);
-      case EditorIntent_InsertBraces():
+      case EditorIntent_InsertBrackets():
         sse_encode_i_32(8, serializer);
-      case EditorIntent_InsertAbs():
+      case EditorIntent_InsertBraces():
         sse_encode_i_32(9, serializer);
-      case EditorIntent_InsertSum():
+      case EditorIntent_InsertAbs():
         sse_encode_i_32(10, serializer);
-      case EditorIntent_InsertProduct():
+      case EditorIntent_InsertSum():
         sse_encode_i_32(11, serializer);
-      case EditorIntent_InsertIntegral():
+      case EditorIntent_InsertProduct():
         sse_encode_i_32(12, serializer);
-      case EditorIntent_InsertLimit():
+      case EditorIntent_InsertIntegral():
         sse_encode_i_32(13, serializer);
-      case EditorIntent_InsertOverline():
+      case EditorIntent_InsertLimit():
         sse_encode_i_32(14, serializer);
-      case EditorIntent_InsertUnderline():
+      case EditorIntent_InsertOverline():
         sse_encode_i_32(15, serializer);
-      case EditorIntent_InsertText():
+      case EditorIntent_InsertUnderline():
         sse_encode_i_32(16, serializer);
-      case EditorIntent_InsertCommandInput():
+      case EditorIntent_InsertText():
         sse_encode_i_32(17, serializer);
-      case EditorIntent_CommandInputType(ch: final ch):
+      case EditorIntent_InsertCommandInput():
         sse_encode_i_32(18, serializer);
+      case EditorIntent_CommandInputType(ch: final ch):
+        sse_encode_i_32(19, serializer);
         sse_encode_String(ch, serializer);
       case EditorIntent_CommandInputBackspace():
-        sse_encode_i_32(19, serializer);
-      case EditorIntent_ResolveCommandInput():
         sse_encode_i_32(20, serializer);
-      case EditorIntent_CancelCommandInput():
+      case EditorIntent_ResolveCommandInput():
         sse_encode_i_32(21, serializer);
-      case EditorIntent_MoveLeft():
+      case EditorIntent_CancelCommandInput():
         sse_encode_i_32(22, serializer);
-      case EditorIntent_MoveRight():
+      case EditorIntent_MoveLeft():
         sse_encode_i_32(23, serializer);
-      case EditorIntent_EscapeRight():
+      case EditorIntent_MoveRight():
         sse_encode_i_32(24, serializer);
-      case EditorIntent_MoveUp():
+      case EditorIntent_EscapeRight():
         sse_encode_i_32(25, serializer);
-      case EditorIntent_MoveDown():
+      case EditorIntent_MoveUp():
         sse_encode_i_32(26, serializer);
-      case EditorIntent_MoveToStart():
+      case EditorIntent_MoveDown():
         sse_encode_i_32(27, serializer);
-      case EditorIntent_MoveToEnd():
+      case EditorIntent_MoveToStart():
         sse_encode_i_32(28, serializer);
-      case EditorIntent_SelectLeft():
+      case EditorIntent_MoveToEnd():
         sse_encode_i_32(29, serializer);
-      case EditorIntent_SelectRight():
+      case EditorIntent_SelectLeft():
         sse_encode_i_32(30, serializer);
-      case EditorIntent_SelectAll():
+      case EditorIntent_SelectRight():
         sse_encode_i_32(31, serializer);
-      case EditorIntent_DeleteBackward():
+      case EditorIntent_SelectAll():
         sse_encode_i_32(32, serializer);
-      case EditorIntent_DeleteForward():
+      case EditorIntent_DeleteBackward():
         sse_encode_i_32(33, serializer);
-      case EditorIntent_SetLatex(latex: final latex):
+      case EditorIntent_DeleteForward():
         sse_encode_i_32(34, serializer);
+      case EditorIntent_SetLatex(latex: final latex):
+        sse_encode_i_32(35, serializer);
         sse_encode_String(latex, serializer);
       case EditorIntent_TapBlock(
         blockId: final blockId,
         caretIndex: final caretIndex,
       ):
-        sse_encode_i_32(35, serializer);
+        sse_encode_i_32(36, serializer);
         sse_encode_u_32(blockId, serializer);
         sse_encode_u_32(caretIndex, serializer);
     }

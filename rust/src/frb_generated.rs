@@ -450,107 +450,110 @@ impl SseDecode for crate::api::editor_api::EditorIntent {
                 return crate::api::editor_api::EditorIntent::InsertFrac;
             }
             2 => {
-                return crate::api::editor_api::EditorIntent::InsertSqrt;
+                return crate::api::editor_api::EditorIntent::LiveFraction;
             }
             3 => {
-                return crate::api::editor_api::EditorIntent::InsertNthRoot;
+                return crate::api::editor_api::EditorIntent::InsertSqrt;
             }
             4 => {
-                return crate::api::editor_api::EditorIntent::InsertSup;
+                return crate::api::editor_api::EditorIntent::InsertNthRoot;
             }
             5 => {
-                return crate::api::editor_api::EditorIntent::InsertSub;
+                return crate::api::editor_api::EditorIntent::InsertSup;
             }
             6 => {
-                return crate::api::editor_api::EditorIntent::InsertParentheses;
+                return crate::api::editor_api::EditorIntent::InsertSub;
             }
             7 => {
-                return crate::api::editor_api::EditorIntent::InsertBrackets;
+                return crate::api::editor_api::EditorIntent::InsertParentheses;
             }
             8 => {
-                return crate::api::editor_api::EditorIntent::InsertBraces;
+                return crate::api::editor_api::EditorIntent::InsertBrackets;
             }
             9 => {
-                return crate::api::editor_api::EditorIntent::InsertAbs;
+                return crate::api::editor_api::EditorIntent::InsertBraces;
             }
             10 => {
-                return crate::api::editor_api::EditorIntent::InsertSum;
+                return crate::api::editor_api::EditorIntent::InsertAbs;
             }
             11 => {
-                return crate::api::editor_api::EditorIntent::InsertProduct;
+                return crate::api::editor_api::EditorIntent::InsertSum;
             }
             12 => {
-                return crate::api::editor_api::EditorIntent::InsertIntegral;
+                return crate::api::editor_api::EditorIntent::InsertProduct;
             }
             13 => {
-                return crate::api::editor_api::EditorIntent::InsertLimit;
+                return crate::api::editor_api::EditorIntent::InsertIntegral;
             }
             14 => {
-                return crate::api::editor_api::EditorIntent::InsertOverline;
+                return crate::api::editor_api::EditorIntent::InsertLimit;
             }
             15 => {
-                return crate::api::editor_api::EditorIntent::InsertUnderline;
+                return crate::api::editor_api::EditorIntent::InsertOverline;
             }
             16 => {
-                return crate::api::editor_api::EditorIntent::InsertText;
+                return crate::api::editor_api::EditorIntent::InsertUnderline;
             }
             17 => {
-                return crate::api::editor_api::EditorIntent::InsertCommandInput;
+                return crate::api::editor_api::EditorIntent::InsertText;
             }
             18 => {
+                return crate::api::editor_api::EditorIntent::InsertCommandInput;
+            }
+            19 => {
                 let mut var_ch = <String>::sse_decode(deserializer);
                 return crate::api::editor_api::EditorIntent::CommandInputType { ch: var_ch };
             }
-            19 => {
+            20 => {
                 return crate::api::editor_api::EditorIntent::CommandInputBackspace;
             }
-            20 => {
+            21 => {
                 return crate::api::editor_api::EditorIntent::ResolveCommandInput;
             }
-            21 => {
+            22 => {
                 return crate::api::editor_api::EditorIntent::CancelCommandInput;
             }
-            22 => {
+            23 => {
                 return crate::api::editor_api::EditorIntent::MoveLeft;
             }
-            23 => {
+            24 => {
                 return crate::api::editor_api::EditorIntent::MoveRight;
             }
-            24 => {
+            25 => {
                 return crate::api::editor_api::EditorIntent::EscapeRight;
             }
-            25 => {
+            26 => {
                 return crate::api::editor_api::EditorIntent::MoveUp;
             }
-            26 => {
+            27 => {
                 return crate::api::editor_api::EditorIntent::MoveDown;
             }
-            27 => {
+            28 => {
                 return crate::api::editor_api::EditorIntent::MoveToStart;
             }
-            28 => {
+            29 => {
                 return crate::api::editor_api::EditorIntent::MoveToEnd;
             }
-            29 => {
+            30 => {
                 return crate::api::editor_api::EditorIntent::SelectLeft;
             }
-            30 => {
+            31 => {
                 return crate::api::editor_api::EditorIntent::SelectRight;
             }
-            31 => {
+            32 => {
                 return crate::api::editor_api::EditorIntent::SelectAll;
             }
-            32 => {
+            33 => {
                 return crate::api::editor_api::EditorIntent::DeleteBackward;
             }
-            33 => {
+            34 => {
                 return crate::api::editor_api::EditorIntent::DeleteForward;
             }
-            34 => {
+            35 => {
                 let mut var_latex = <String>::sse_decode(deserializer);
                 return crate::api::editor_api::EditorIntent::SetLatex { latex: var_latex };
             }
-            35 => {
+            36 => {
                 let mut var_blockId = <u32>::sse_decode(deserializer);
                 let mut var_caretIndex = <u32>::sse_decode(deserializer);
                 return crate::api::editor_api::EditorIntent::TapBlock {
@@ -1071,56 +1074,57 @@ impl flutter_rust_bridge::IntoDart for crate::api::editor_api::EditorIntent {
                 [0.into_dart(), ch.into_into_dart().into_dart()].into_dart()
             }
             crate::api::editor_api::EditorIntent::InsertFrac => [1.into_dart()].into_dart(),
-            crate::api::editor_api::EditorIntent::InsertSqrt => [2.into_dart()].into_dart(),
-            crate::api::editor_api::EditorIntent::InsertNthRoot => [3.into_dart()].into_dart(),
-            crate::api::editor_api::EditorIntent::InsertSup => [4.into_dart()].into_dart(),
-            crate::api::editor_api::EditorIntent::InsertSub => [5.into_dart()].into_dart(),
-            crate::api::editor_api::EditorIntent::InsertParentheses => [6.into_dart()].into_dart(),
-            crate::api::editor_api::EditorIntent::InsertBrackets => [7.into_dart()].into_dart(),
-            crate::api::editor_api::EditorIntent::InsertBraces => [8.into_dart()].into_dart(),
-            crate::api::editor_api::EditorIntent::InsertAbs => [9.into_dart()].into_dart(),
-            crate::api::editor_api::EditorIntent::InsertSum => [10.into_dart()].into_dart(),
-            crate::api::editor_api::EditorIntent::InsertProduct => [11.into_dart()].into_dart(),
-            crate::api::editor_api::EditorIntent::InsertIntegral => [12.into_dart()].into_dart(),
-            crate::api::editor_api::EditorIntent::InsertLimit => [13.into_dart()].into_dart(),
-            crate::api::editor_api::EditorIntent::InsertOverline => [14.into_dart()].into_dart(),
-            crate::api::editor_api::EditorIntent::InsertUnderline => [15.into_dart()].into_dart(),
-            crate::api::editor_api::EditorIntent::InsertText => [16.into_dart()].into_dart(),
+            crate::api::editor_api::EditorIntent::LiveFraction => [2.into_dart()].into_dart(),
+            crate::api::editor_api::EditorIntent::InsertSqrt => [3.into_dart()].into_dart(),
+            crate::api::editor_api::EditorIntent::InsertNthRoot => [4.into_dart()].into_dart(),
+            crate::api::editor_api::EditorIntent::InsertSup => [5.into_dart()].into_dart(),
+            crate::api::editor_api::EditorIntent::InsertSub => [6.into_dart()].into_dart(),
+            crate::api::editor_api::EditorIntent::InsertParentheses => [7.into_dart()].into_dart(),
+            crate::api::editor_api::EditorIntent::InsertBrackets => [8.into_dart()].into_dart(),
+            crate::api::editor_api::EditorIntent::InsertBraces => [9.into_dart()].into_dart(),
+            crate::api::editor_api::EditorIntent::InsertAbs => [10.into_dart()].into_dart(),
+            crate::api::editor_api::EditorIntent::InsertSum => [11.into_dart()].into_dart(),
+            crate::api::editor_api::EditorIntent::InsertProduct => [12.into_dart()].into_dart(),
+            crate::api::editor_api::EditorIntent::InsertIntegral => [13.into_dart()].into_dart(),
+            crate::api::editor_api::EditorIntent::InsertLimit => [14.into_dart()].into_dart(),
+            crate::api::editor_api::EditorIntent::InsertOverline => [15.into_dart()].into_dart(),
+            crate::api::editor_api::EditorIntent::InsertUnderline => [16.into_dart()].into_dart(),
+            crate::api::editor_api::EditorIntent::InsertText => [17.into_dart()].into_dart(),
             crate::api::editor_api::EditorIntent::InsertCommandInput => {
-                [17.into_dart()].into_dart()
+                [18.into_dart()].into_dart()
             }
             crate::api::editor_api::EditorIntent::CommandInputType { ch } => {
-                [18.into_dart(), ch.into_into_dart().into_dart()].into_dart()
+                [19.into_dart(), ch.into_into_dart().into_dart()].into_dart()
             }
             crate::api::editor_api::EditorIntent::CommandInputBackspace => {
-                [19.into_dart()].into_dart()
-            }
-            crate::api::editor_api::EditorIntent::ResolveCommandInput => {
                 [20.into_dart()].into_dart()
             }
-            crate::api::editor_api::EditorIntent::CancelCommandInput => {
+            crate::api::editor_api::EditorIntent::ResolveCommandInput => {
                 [21.into_dart()].into_dart()
             }
-            crate::api::editor_api::EditorIntent::MoveLeft => [22.into_dart()].into_dart(),
-            crate::api::editor_api::EditorIntent::MoveRight => [23.into_dart()].into_dart(),
-            crate::api::editor_api::EditorIntent::EscapeRight => [24.into_dart()].into_dart(),
-            crate::api::editor_api::EditorIntent::MoveUp => [25.into_dart()].into_dart(),
-            crate::api::editor_api::EditorIntent::MoveDown => [26.into_dart()].into_dart(),
-            crate::api::editor_api::EditorIntent::MoveToStart => [27.into_dart()].into_dart(),
-            crate::api::editor_api::EditorIntent::MoveToEnd => [28.into_dart()].into_dart(),
-            crate::api::editor_api::EditorIntent::SelectLeft => [29.into_dart()].into_dart(),
-            crate::api::editor_api::EditorIntent::SelectRight => [30.into_dart()].into_dart(),
-            crate::api::editor_api::EditorIntent::SelectAll => [31.into_dart()].into_dart(),
-            crate::api::editor_api::EditorIntent::DeleteBackward => [32.into_dart()].into_dart(),
-            crate::api::editor_api::EditorIntent::DeleteForward => [33.into_dart()].into_dart(),
+            crate::api::editor_api::EditorIntent::CancelCommandInput => {
+                [22.into_dart()].into_dart()
+            }
+            crate::api::editor_api::EditorIntent::MoveLeft => [23.into_dart()].into_dart(),
+            crate::api::editor_api::EditorIntent::MoveRight => [24.into_dart()].into_dart(),
+            crate::api::editor_api::EditorIntent::EscapeRight => [25.into_dart()].into_dart(),
+            crate::api::editor_api::EditorIntent::MoveUp => [26.into_dart()].into_dart(),
+            crate::api::editor_api::EditorIntent::MoveDown => [27.into_dart()].into_dart(),
+            crate::api::editor_api::EditorIntent::MoveToStart => [28.into_dart()].into_dart(),
+            crate::api::editor_api::EditorIntent::MoveToEnd => [29.into_dart()].into_dart(),
+            crate::api::editor_api::EditorIntent::SelectLeft => [30.into_dart()].into_dart(),
+            crate::api::editor_api::EditorIntent::SelectRight => [31.into_dart()].into_dart(),
+            crate::api::editor_api::EditorIntent::SelectAll => [32.into_dart()].into_dart(),
+            crate::api::editor_api::EditorIntent::DeleteBackward => [33.into_dart()].into_dart(),
+            crate::api::editor_api::EditorIntent::DeleteForward => [34.into_dart()].into_dart(),
             crate::api::editor_api::EditorIntent::SetLatex { latex } => {
-                [34.into_dart(), latex.into_into_dart().into_dart()].into_dart()
+                [35.into_dart(), latex.into_into_dart().into_dart()].into_dart()
             }
             crate::api::editor_api::EditorIntent::TapBlock {
                 block_id,
                 caret_index,
             } => [
-                35.into_dart(),
+                36.into_dart(),
                 block_id.into_into_dart().into_dart(),
                 caret_index.into_into_dart().into_dart(),
             ]
@@ -1518,112 +1522,115 @@ impl SseEncode for crate::api::editor_api::EditorIntent {
             crate::api::editor_api::EditorIntent::InsertFrac => {
                 <i32>::sse_encode(1, serializer);
             }
-            crate::api::editor_api::EditorIntent::InsertSqrt => {
+            crate::api::editor_api::EditorIntent::LiveFraction => {
                 <i32>::sse_encode(2, serializer);
             }
-            crate::api::editor_api::EditorIntent::InsertNthRoot => {
+            crate::api::editor_api::EditorIntent::InsertSqrt => {
                 <i32>::sse_encode(3, serializer);
             }
-            crate::api::editor_api::EditorIntent::InsertSup => {
+            crate::api::editor_api::EditorIntent::InsertNthRoot => {
                 <i32>::sse_encode(4, serializer);
             }
-            crate::api::editor_api::EditorIntent::InsertSub => {
+            crate::api::editor_api::EditorIntent::InsertSup => {
                 <i32>::sse_encode(5, serializer);
             }
-            crate::api::editor_api::EditorIntent::InsertParentheses => {
+            crate::api::editor_api::EditorIntent::InsertSub => {
                 <i32>::sse_encode(6, serializer);
             }
-            crate::api::editor_api::EditorIntent::InsertBrackets => {
+            crate::api::editor_api::EditorIntent::InsertParentheses => {
                 <i32>::sse_encode(7, serializer);
             }
-            crate::api::editor_api::EditorIntent::InsertBraces => {
+            crate::api::editor_api::EditorIntent::InsertBrackets => {
                 <i32>::sse_encode(8, serializer);
             }
-            crate::api::editor_api::EditorIntent::InsertAbs => {
+            crate::api::editor_api::EditorIntent::InsertBraces => {
                 <i32>::sse_encode(9, serializer);
             }
-            crate::api::editor_api::EditorIntent::InsertSum => {
+            crate::api::editor_api::EditorIntent::InsertAbs => {
                 <i32>::sse_encode(10, serializer);
             }
-            crate::api::editor_api::EditorIntent::InsertProduct => {
+            crate::api::editor_api::EditorIntent::InsertSum => {
                 <i32>::sse_encode(11, serializer);
             }
-            crate::api::editor_api::EditorIntent::InsertIntegral => {
+            crate::api::editor_api::EditorIntent::InsertProduct => {
                 <i32>::sse_encode(12, serializer);
             }
-            crate::api::editor_api::EditorIntent::InsertLimit => {
+            crate::api::editor_api::EditorIntent::InsertIntegral => {
                 <i32>::sse_encode(13, serializer);
             }
-            crate::api::editor_api::EditorIntent::InsertOverline => {
+            crate::api::editor_api::EditorIntent::InsertLimit => {
                 <i32>::sse_encode(14, serializer);
             }
-            crate::api::editor_api::EditorIntent::InsertUnderline => {
+            crate::api::editor_api::EditorIntent::InsertOverline => {
                 <i32>::sse_encode(15, serializer);
             }
-            crate::api::editor_api::EditorIntent::InsertText => {
+            crate::api::editor_api::EditorIntent::InsertUnderline => {
                 <i32>::sse_encode(16, serializer);
             }
-            crate::api::editor_api::EditorIntent::InsertCommandInput => {
+            crate::api::editor_api::EditorIntent::InsertText => {
                 <i32>::sse_encode(17, serializer);
             }
-            crate::api::editor_api::EditorIntent::CommandInputType { ch } => {
+            crate::api::editor_api::EditorIntent::InsertCommandInput => {
                 <i32>::sse_encode(18, serializer);
+            }
+            crate::api::editor_api::EditorIntent::CommandInputType { ch } => {
+                <i32>::sse_encode(19, serializer);
                 <String>::sse_encode(ch, serializer);
             }
             crate::api::editor_api::EditorIntent::CommandInputBackspace => {
-                <i32>::sse_encode(19, serializer);
-            }
-            crate::api::editor_api::EditorIntent::ResolveCommandInput => {
                 <i32>::sse_encode(20, serializer);
             }
-            crate::api::editor_api::EditorIntent::CancelCommandInput => {
+            crate::api::editor_api::EditorIntent::ResolveCommandInput => {
                 <i32>::sse_encode(21, serializer);
             }
-            crate::api::editor_api::EditorIntent::MoveLeft => {
+            crate::api::editor_api::EditorIntent::CancelCommandInput => {
                 <i32>::sse_encode(22, serializer);
             }
-            crate::api::editor_api::EditorIntent::MoveRight => {
+            crate::api::editor_api::EditorIntent::MoveLeft => {
                 <i32>::sse_encode(23, serializer);
             }
-            crate::api::editor_api::EditorIntent::EscapeRight => {
+            crate::api::editor_api::EditorIntent::MoveRight => {
                 <i32>::sse_encode(24, serializer);
             }
-            crate::api::editor_api::EditorIntent::MoveUp => {
+            crate::api::editor_api::EditorIntent::EscapeRight => {
                 <i32>::sse_encode(25, serializer);
             }
-            crate::api::editor_api::EditorIntent::MoveDown => {
+            crate::api::editor_api::EditorIntent::MoveUp => {
                 <i32>::sse_encode(26, serializer);
             }
-            crate::api::editor_api::EditorIntent::MoveToStart => {
+            crate::api::editor_api::EditorIntent::MoveDown => {
                 <i32>::sse_encode(27, serializer);
             }
-            crate::api::editor_api::EditorIntent::MoveToEnd => {
+            crate::api::editor_api::EditorIntent::MoveToStart => {
                 <i32>::sse_encode(28, serializer);
             }
-            crate::api::editor_api::EditorIntent::SelectLeft => {
+            crate::api::editor_api::EditorIntent::MoveToEnd => {
                 <i32>::sse_encode(29, serializer);
             }
-            crate::api::editor_api::EditorIntent::SelectRight => {
+            crate::api::editor_api::EditorIntent::SelectLeft => {
                 <i32>::sse_encode(30, serializer);
             }
-            crate::api::editor_api::EditorIntent::SelectAll => {
+            crate::api::editor_api::EditorIntent::SelectRight => {
                 <i32>::sse_encode(31, serializer);
             }
-            crate::api::editor_api::EditorIntent::DeleteBackward => {
+            crate::api::editor_api::EditorIntent::SelectAll => {
                 <i32>::sse_encode(32, serializer);
             }
-            crate::api::editor_api::EditorIntent::DeleteForward => {
+            crate::api::editor_api::EditorIntent::DeleteBackward => {
                 <i32>::sse_encode(33, serializer);
             }
-            crate::api::editor_api::EditorIntent::SetLatex { latex } => {
+            crate::api::editor_api::EditorIntent::DeleteForward => {
                 <i32>::sse_encode(34, serializer);
+            }
+            crate::api::editor_api::EditorIntent::SetLatex { latex } => {
+                <i32>::sse_encode(35, serializer);
                 <String>::sse_encode(latex, serializer);
             }
             crate::api::editor_api::EditorIntent::TapBlock {
                 block_id,
                 caret_index,
             } => {
-                <i32>::sse_encode(35, serializer);
+                <i32>::sse_encode(36, serializer);
                 <u32>::sse_encode(block_id, serializer);
                 <u32>::sse_encode(caret_index, serializer);
             }

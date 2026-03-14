@@ -226,6 +226,7 @@ class RenderEditableMathLine extends RenderMathLine {
         tp.computeDistanceToActualBaseline(TextBaseline.alphabetic);
     _fontDescent = tp.height - _fontAscent;
     _fontMetricsForSize = effectiveSize;
+    tp.dispose();
   }
 
   /// The cursor rectangle in local coordinates, or null if no cursor is active.
