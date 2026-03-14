@@ -14,7 +14,8 @@ T _$identity<T>(T value) => value;
 /// @nodoc
 mixin _$MathNode {
 
- double get x; double get y;/// Optional opaque ID for correlating with a source tree (e.g. editor arena).
+ double get x; double get y;/// Advance width in em (actual glyph width from font metrics, scaled).
+ double get width;/// Optional opaque ID for correlating with a source tree (e.g. editor arena).
  int? get nodeId;
 /// Create a copy of MathNode
 /// with the given fields replaced by the non-null parameter values.
@@ -26,16 +27,16 @@ $MathNodeCopyWith<MathNode> get copyWith => _$MathNodeCopyWithImpl<MathNode>(thi
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is MathNode&&(identical(other.x, x) || other.x == x)&&(identical(other.y, y) || other.y == y)&&(identical(other.nodeId, nodeId) || other.nodeId == nodeId));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is MathNode&&(identical(other.x, x) || other.x == x)&&(identical(other.y, y) || other.y == y)&&(identical(other.width, width) || other.width == width)&&(identical(other.nodeId, nodeId) || other.nodeId == nodeId));
 }
 
 
 @override
-int get hashCode => Object.hash(runtimeType,x,y,nodeId);
+int get hashCode => Object.hash(runtimeType,x,y,width,nodeId);
 
 @override
 String toString() {
-  return 'MathNode(x: $x, y: $y, nodeId: $nodeId)';
+  return 'MathNode(x: $x, y: $y, width: $width, nodeId: $nodeId)';
 }
 
 
@@ -46,7 +47,7 @@ abstract mixin class $MathNodeCopyWith<$Res>  {
   factory $MathNodeCopyWith(MathNode value, $Res Function(MathNode) _then) = _$MathNodeCopyWithImpl;
 @useResult
 $Res call({
- double x, double y, int? nodeId
+ double x, double y, double width, int? nodeId
 });
 
 
@@ -63,10 +64,11 @@ class _$MathNodeCopyWithImpl<$Res>
 
 /// Create a copy of MathNode
 /// with the given fields replaced by the non-null parameter values.
-@pragma('vm:prefer-inline') @override $Res call({Object? x = null,Object? y = null,Object? nodeId = freezed,}) {
+@pragma('vm:prefer-inline') @override $Res call({Object? x = null,Object? y = null,Object? width = null,Object? nodeId = freezed,}) {
   return _then(_self.copyWith(
 x: null == x ? _self.x : x // ignore: cast_nullable_to_non_nullable
 as double,y: null == y ? _self.y : y // ignore: cast_nullable_to_non_nullable
+as double,width: null == width ? _self.width : width // ignore: cast_nullable_to_non_nullable
 as double,nodeId: freezed == nodeId ? _self.nodeId : nodeId // ignore: cast_nullable_to_non_nullable
 as int?,
   ));
@@ -156,10 +158,10 @@ return svgPath(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>({TResult Function( int codepoint,  double x,  double y,  String fontName,  double scale,  String? color,  int? nodeId)?  glyph,TResult Function( double x,  double y,  double width,  double height,  String? color,  int? nodeId)?  rule,TResult Function( double x,  double y,  double width,  double height,  double viewBoxX,  double viewBoxY,  double viewBoxWidth,  double viewBoxHeight,  List<PathCommand> commands,  int? nodeId)?  svgPath,required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>({TResult Function( int codepoint,  double x,  double y,  String fontName,  double scale,  double width,  String? color,  int? nodeId)?  glyph,TResult Function( double x,  double y,  double width,  double height,  String? color,  int? nodeId)?  rule,TResult Function( double x,  double y,  double width,  double height,  double viewBoxX,  double viewBoxY,  double viewBoxWidth,  double viewBoxHeight,  List<PathCommand> commands,  int? nodeId)?  svgPath,required TResult orElse(),}) {final _that = this;
 switch (_that) {
 case MathNode_Glyph() when glyph != null:
-return glyph(_that.codepoint,_that.x,_that.y,_that.fontName,_that.scale,_that.color,_that.nodeId);case MathNode_Rule() when rule != null:
+return glyph(_that.codepoint,_that.x,_that.y,_that.fontName,_that.scale,_that.width,_that.color,_that.nodeId);case MathNode_Rule() when rule != null:
 return rule(_that.x,_that.y,_that.width,_that.height,_that.color,_that.nodeId);case MathNode_SvgPath() when svgPath != null:
 return svgPath(_that.x,_that.y,_that.width,_that.height,_that.viewBoxX,_that.viewBoxY,_that.viewBoxWidth,_that.viewBoxHeight,_that.commands,_that.nodeId);case _:
   return orElse();
@@ -179,10 +181,10 @@ return svgPath(_that.x,_that.y,_that.width,_that.height,_that.viewBoxX,_that.vie
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>({required TResult Function( int codepoint,  double x,  double y,  String fontName,  double scale,  String? color,  int? nodeId)  glyph,required TResult Function( double x,  double y,  double width,  double height,  String? color,  int? nodeId)  rule,required TResult Function( double x,  double y,  double width,  double height,  double viewBoxX,  double viewBoxY,  double viewBoxWidth,  double viewBoxHeight,  List<PathCommand> commands,  int? nodeId)  svgPath,}) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>({required TResult Function( int codepoint,  double x,  double y,  String fontName,  double scale,  double width,  String? color,  int? nodeId)  glyph,required TResult Function( double x,  double y,  double width,  double height,  String? color,  int? nodeId)  rule,required TResult Function( double x,  double y,  double width,  double height,  double viewBoxX,  double viewBoxY,  double viewBoxWidth,  double viewBoxHeight,  List<PathCommand> commands,  int? nodeId)  svgPath,}) {final _that = this;
 switch (_that) {
 case MathNode_Glyph():
-return glyph(_that.codepoint,_that.x,_that.y,_that.fontName,_that.scale,_that.color,_that.nodeId);case MathNode_Rule():
+return glyph(_that.codepoint,_that.x,_that.y,_that.fontName,_that.scale,_that.width,_that.color,_that.nodeId);case MathNode_Rule():
 return rule(_that.x,_that.y,_that.width,_that.height,_that.color,_that.nodeId);case MathNode_SvgPath():
 return svgPath(_that.x,_that.y,_that.width,_that.height,_that.viewBoxX,_that.viewBoxY,_that.viewBoxWidth,_that.viewBoxHeight,_that.commands,_that.nodeId);}
 }
@@ -198,10 +200,10 @@ return svgPath(_that.x,_that.y,_that.width,_that.height,_that.viewBoxX,_that.vie
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>({TResult? Function( int codepoint,  double x,  double y,  String fontName,  double scale,  String? color,  int? nodeId)?  glyph,TResult? Function( double x,  double y,  double width,  double height,  String? color,  int? nodeId)?  rule,TResult? Function( double x,  double y,  double width,  double height,  double viewBoxX,  double viewBoxY,  double viewBoxWidth,  double viewBoxHeight,  List<PathCommand> commands,  int? nodeId)?  svgPath,}) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>({TResult? Function( int codepoint,  double x,  double y,  String fontName,  double scale,  double width,  String? color,  int? nodeId)?  glyph,TResult? Function( double x,  double y,  double width,  double height,  String? color,  int? nodeId)?  rule,TResult? Function( double x,  double y,  double width,  double height,  double viewBoxX,  double viewBoxY,  double viewBoxWidth,  double viewBoxHeight,  List<PathCommand> commands,  int? nodeId)?  svgPath,}) {final _that = this;
 switch (_that) {
 case MathNode_Glyph() when glyph != null:
-return glyph(_that.codepoint,_that.x,_that.y,_that.fontName,_that.scale,_that.color,_that.nodeId);case MathNode_Rule() when rule != null:
+return glyph(_that.codepoint,_that.x,_that.y,_that.fontName,_that.scale,_that.width,_that.color,_that.nodeId);case MathNode_Rule() when rule != null:
 return rule(_that.x,_that.y,_that.width,_that.height,_that.color,_that.nodeId);case MathNode_SvgPath() when svgPath != null:
 return svgPath(_that.x,_that.y,_that.width,_that.height,_that.viewBoxX,_that.viewBoxY,_that.viewBoxWidth,_that.viewBoxHeight,_that.commands,_that.nodeId);case _:
   return null;
@@ -215,7 +217,7 @@ return svgPath(_that.x,_that.y,_that.width,_that.height,_that.viewBoxX,_that.vie
 
 
 class MathNode_Glyph extends MathNode {
-  const MathNode_Glyph({required this.codepoint, required this.x, required this.y, required this.fontName, required this.scale, this.color, this.nodeId}): super._();
+  const MathNode_Glyph({required this.codepoint, required this.x, required this.y, required this.fontName, required this.scale, required this.width, this.color, this.nodeId}): super._();
   
 
  final  int codepoint;
@@ -223,6 +225,8 @@ class MathNode_Glyph extends MathNode {
 @override final  double y;
  final  String fontName;
  final  double scale;
+/// Advance width in em (actual glyph width from font metrics, scaled).
+@override final  double width;
  final  String? color;
 /// Optional opaque ID for correlating with a source tree (e.g. editor arena).
 @override final  int? nodeId;
@@ -237,16 +241,16 @@ $MathNode_GlyphCopyWith<MathNode_Glyph> get copyWith => _$MathNode_GlyphCopyWith
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is MathNode_Glyph&&(identical(other.codepoint, codepoint) || other.codepoint == codepoint)&&(identical(other.x, x) || other.x == x)&&(identical(other.y, y) || other.y == y)&&(identical(other.fontName, fontName) || other.fontName == fontName)&&(identical(other.scale, scale) || other.scale == scale)&&(identical(other.color, color) || other.color == color)&&(identical(other.nodeId, nodeId) || other.nodeId == nodeId));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is MathNode_Glyph&&(identical(other.codepoint, codepoint) || other.codepoint == codepoint)&&(identical(other.x, x) || other.x == x)&&(identical(other.y, y) || other.y == y)&&(identical(other.fontName, fontName) || other.fontName == fontName)&&(identical(other.scale, scale) || other.scale == scale)&&(identical(other.width, width) || other.width == width)&&(identical(other.color, color) || other.color == color)&&(identical(other.nodeId, nodeId) || other.nodeId == nodeId));
 }
 
 
 @override
-int get hashCode => Object.hash(runtimeType,codepoint,x,y,fontName,scale,color,nodeId);
+int get hashCode => Object.hash(runtimeType,codepoint,x,y,fontName,scale,width,color,nodeId);
 
 @override
 String toString() {
-  return 'MathNode.glyph(codepoint: $codepoint, x: $x, y: $y, fontName: $fontName, scale: $scale, color: $color, nodeId: $nodeId)';
+  return 'MathNode.glyph(codepoint: $codepoint, x: $x, y: $y, fontName: $fontName, scale: $scale, width: $width, color: $color, nodeId: $nodeId)';
 }
 
 
@@ -257,7 +261,7 @@ abstract mixin class $MathNode_GlyphCopyWith<$Res> implements $MathNodeCopyWith<
   factory $MathNode_GlyphCopyWith(MathNode_Glyph value, $Res Function(MathNode_Glyph) _then) = _$MathNode_GlyphCopyWithImpl;
 @override @useResult
 $Res call({
- int codepoint, double x, double y, String fontName, double scale, String? color, int? nodeId
+ int codepoint, double x, double y, String fontName, double scale, double width, String? color, int? nodeId
 });
 
 
@@ -274,13 +278,14 @@ class _$MathNode_GlyphCopyWithImpl<$Res>
 
 /// Create a copy of MathNode
 /// with the given fields replaced by the non-null parameter values.
-@override @pragma('vm:prefer-inline') $Res call({Object? codepoint = null,Object? x = null,Object? y = null,Object? fontName = null,Object? scale = null,Object? color = freezed,Object? nodeId = freezed,}) {
+@override @pragma('vm:prefer-inline') $Res call({Object? codepoint = null,Object? x = null,Object? y = null,Object? fontName = null,Object? scale = null,Object? width = null,Object? color = freezed,Object? nodeId = freezed,}) {
   return _then(MathNode_Glyph(
 codepoint: null == codepoint ? _self.codepoint : codepoint // ignore: cast_nullable_to_non_nullable
 as int,x: null == x ? _self.x : x // ignore: cast_nullable_to_non_nullable
 as double,y: null == y ? _self.y : y // ignore: cast_nullable_to_non_nullable
 as double,fontName: null == fontName ? _self.fontName : fontName // ignore: cast_nullable_to_non_nullable
 as String,scale: null == scale ? _self.scale : scale // ignore: cast_nullable_to_non_nullable
+as double,width: null == width ? _self.width : width // ignore: cast_nullable_to_non_nullable
 as double,color: freezed == color ? _self.color : color // ignore: cast_nullable_to_non_nullable
 as String?,nodeId: freezed == nodeId ? _self.nodeId : nodeId // ignore: cast_nullable_to_non_nullable
 as int?,
@@ -299,7 +304,7 @@ class MathNode_Rule extends MathNode {
 
 @override final  double x;
 @override final  double y;
- final  double width;
+@override final  double width;
  final  double height;
  final  String? color;
 /// Optional opaque ID for correlating with a source tree.
@@ -376,7 +381,7 @@ class MathNode_SvgPath extends MathNode {
 
 @override final  double x;
 @override final  double y;
- final  double width;
+@override final  double width;
  final  double height;
  final  double viewBoxX;
  final  double viewBoxY;

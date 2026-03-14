@@ -9,7 +9,7 @@ import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 import 'package:freezed_annotation/freezed_annotation.dart' hide protected;
 part 'editor_layout.freezed.dart';
 
-// These functions are ignored because they are not marked as `pub`: `build_block_layout`, `build_editor_layout`, `build_node_layout`, `build_readonly_layout`, `collect_subtree_glyphs`, `compute_block_selection`, `compute_cursor_index`, `compute_glyph_extents`, `from_state`, `glyphs_for_subtree`, `glyphs_for`, `new`, `none`
+// These functions are ignored because they are not marked as `pub`: `build_block_layout`, `build_editor_layout`, `build_node_layout`, `build_readonly_layout`, `collect_subtree_glyphs`, `compute_baseline_shift`, `compute_block_selection`, `compute_cursor_index`, `compute_font_scale`, `compute_glyph_extents`, `compute_left_x`, `compute_right_x`, `from_state`, `glyphs_for_subtree`, `glyphs_for`, `new`, `none`
 // These types are ignored because they are neither used by any `pub` functions nor (for structs and enums) marked `#[frb(unignore)]`: `BlockCursorInfo`, `GlyphIndex`, `SelectionInfo`
 // These function are ignored because they are on traits that is not defined in current crate (put an empty `#[frb]` on it to unignore): `clone`, `clone`, `clone`, `clone`, `clone`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `from`
 
@@ -19,6 +19,19 @@ class BlockLayout {
   final double width;
   final double height;
   final double depth;
+
+  /// X-position (em) for each caret gap: index 0 = before first node, index n = after last.
+  final Float64List caretPositions;
+
+  /// Y-offset (em) of this block's leaf text baseline from the expression baseline.
+  /// Numerator blocks have positive values (above), denominator negative (below).
+  final double baselineShift;
+
+  /// Effective font-size multiplier for leaf content in this block (1.0 for root, ~0.7 for fractions).
+  final double fontScale;
+
+  /// Leftmost x-coordinate (em) across all glyphs in this block's subtree.
+  final double leftX;
   final List<NodeLayout> children;
 
   /// Caret position if cursor is in this block (index into children gaps: 0 = before first, n = after last).
@@ -27,14 +40,22 @@ class BlockLayout {
   /// Selection range if active in this block.
   final BlockSelection? selection;
 
+  /// Whether this block has no child nodes (empty placeholder).
+  final bool isEmpty;
+
   const BlockLayout({
     required this.blockId,
     required this.width,
     required this.height,
     required this.depth,
+    required this.caretPositions,
+    required this.baselineShift,
+    required this.fontScale,
+    required this.leftX,
     required this.children,
     this.cursorIndex,
     this.selection,
+    required this.isEmpty,
   });
 
   @override
@@ -43,9 +64,14 @@ class BlockLayout {
       width.hashCode ^
       height.hashCode ^
       depth.hashCode ^
+      caretPositions.hashCode ^
+      baselineShift.hashCode ^
+      fontScale.hashCode ^
+      leftX.hashCode ^
       children.hashCode ^
       cursorIndex.hashCode ^
-      selection.hashCode;
+      selection.hashCode ^
+      isEmpty.hashCode;
 
   @override
   bool operator ==(Object other) =>
@@ -56,9 +82,14 @@ class BlockLayout {
           width == other.width &&
           height == other.height &&
           depth == other.depth &&
+          caretPositions == other.caretPositions &&
+          baselineShift == other.baselineShift &&
+          fontScale == other.fontScale &&
+          leftX == other.leftX &&
           children == other.children &&
           cursorIndex == other.cursorIndex &&
-          selection == other.selection;
+          selection == other.selection &&
+          isEmpty == other.isEmpty;
 }
 
 /// Selection range within a block (indices into children gaps).
@@ -99,6 +130,10 @@ sealed class CommandLayoutKind with _$CommandLayoutKind {
     required int cols,
   }) = CommandLayoutKind_Matrix;
   const factory CommandLayoutKind.text() = CommandLayoutKind_Text;
+
+  /// Transient command input box: user is typing `\commandname`.
+  const factory CommandLayoutKind.latexCommandInput({required String text}) =
+      CommandLayoutKind_LatexCommandInput;
   const factory CommandLayoutKind.other() = CommandLayoutKind_Other;
 }
 
@@ -136,6 +171,9 @@ sealed class NodeLayout with _$NodeLayout {
     required double width,
     required double height,
     required double depth,
+
+    /// Leftmost x-coordinate (em) of this node's glyphs.
+    required double leftX,
   }) = NodeLayout_Leaf;
 
   /// A command node (frac, sqrt, etc.) — carries child blocks and decorations.
@@ -145,6 +183,9 @@ sealed class NodeLayout with _$NodeLayout {
     required double width,
     required double height,
     required double depth,
+
+    /// Leftmost x-coordinate (em) of this node's glyphs.
+    required double leftX,
     required List<BlockLayout> childBlocks,
     required List<MathNode> decorations,
   }) = NodeLayout_Command;

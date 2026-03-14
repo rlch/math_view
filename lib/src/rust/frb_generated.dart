@@ -347,16 +347,21 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   BlockLayout dco_decode_block_layout(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     final arr = raw as List<dynamic>;
-    if (arr.length != 7)
-      throw Exception('unexpected arr length: expect 7 but see ${arr.length}');
+    if (arr.length != 12)
+      throw Exception('unexpected arr length: expect 12 but see ${arr.length}');
     return BlockLayout(
       blockId: dco_decode_u_32(arr[0]),
       width: dco_decode_f_64(arr[1]),
       height: dco_decode_f_64(arr[2]),
       depth: dco_decode_f_64(arr[3]),
-      children: dco_decode_list_node_layout(arr[4]),
-      cursorIndex: dco_decode_opt_box_autoadd_u_32(arr[5]),
-      selection: dco_decode_opt_box_autoadd_block_selection(arr[6]),
+      caretPositions: dco_decode_list_prim_f_64_strict(arr[4]),
+      baselineShift: dco_decode_f_64(arr[5]),
+      fontScale: dco_decode_f_64(arr[6]),
+      leftX: dco_decode_f_64(arr[7]),
+      children: dco_decode_list_node_layout(arr[8]),
+      cursorIndex: dco_decode_opt_box_autoadd_u_32(arr[9]),
+      selection: dco_decode_opt_box_autoadd_block_selection(arr[10]),
+      isEmpty: dco_decode_bool(arr[11]),
     );
   }
 
@@ -434,6 +439,10 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       case 11:
         return CommandLayoutKind_Text();
       case 12:
+        return CommandLayoutKind_LatexCommandInput(
+          text: dco_decode_String(raw[1]),
+        );
+      case 13:
         return CommandLayoutKind_Other();
       default:
         throw Exception("unreachable");
@@ -479,30 +488,42 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       case 16:
         return EditorIntent_InsertText();
       case 17:
-        return EditorIntent_MoveLeft();
+        return EditorIntent_InsertCommandInput();
       case 18:
-        return EditorIntent_MoveRight();
+        return EditorIntent_CommandInputType(ch: dco_decode_String(raw[1]));
       case 19:
-        return EditorIntent_MoveUp();
+        return EditorIntent_CommandInputBackspace();
       case 20:
-        return EditorIntent_MoveDown();
+        return EditorIntent_ResolveCommandInput();
       case 21:
-        return EditorIntent_MoveToStart();
+        return EditorIntent_CancelCommandInput();
       case 22:
-        return EditorIntent_MoveToEnd();
+        return EditorIntent_MoveLeft();
       case 23:
-        return EditorIntent_SelectLeft();
+        return EditorIntent_MoveRight();
       case 24:
-        return EditorIntent_SelectRight();
+        return EditorIntent_EscapeRight();
       case 25:
-        return EditorIntent_SelectAll();
+        return EditorIntent_MoveUp();
       case 26:
-        return EditorIntent_DeleteBackward();
+        return EditorIntent_MoveDown();
       case 27:
-        return EditorIntent_DeleteForward();
+        return EditorIntent_MoveToStart();
       case 28:
-        return EditorIntent_SetLatex(latex: dco_decode_String(raw[1]));
+        return EditorIntent_MoveToEnd();
       case 29:
+        return EditorIntent_SelectLeft();
+      case 30:
+        return EditorIntent_SelectRight();
+      case 31:
+        return EditorIntent_SelectAll();
+      case 32:
+        return EditorIntent_DeleteBackward();
+      case 33:
+        return EditorIntent_DeleteForward();
+      case 34:
+        return EditorIntent_SetLatex(latex: dco_decode_String(raw[1]));
+      case 35:
         return EditorIntent_TapBlock(
           blockId: dco_decode_u_32(raw[1]),
           caretIndex: dco_decode_u_32(raw[2]),
@@ -528,11 +549,12 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   EditorSnapshot dco_decode_editor_snapshot(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     final arr = raw as List<dynamic>;
-    if (arr.length != 2)
-      throw Exception('unexpected arr length: expect 2 but see ${arr.length}');
+    if (arr.length != 3)
+      throw Exception('unexpected arr length: expect 3 but see ${arr.length}');
     return EditorSnapshot(
       editorLayout: dco_decode_editor_layout(arr[0]),
       latex: dco_decode_String(arr[1]),
+      inCommandInput: dco_decode_bool(arr[2]),
     );
   }
 
@@ -567,6 +589,12 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  Float64List dco_decode_list_prim_f_64_strict(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return raw as Float64List;
+  }
+
+  @protected
   Uint8List dco_decode_list_prim_u_8_strict(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     return raw as Uint8List;
@@ -597,8 +625,9 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           y: dco_decode_f_64(raw[3]),
           fontName: dco_decode_String(raw[4]),
           scale: dco_decode_f_64(raw[5]),
-          color: dco_decode_opt_String(raw[6]),
-          nodeId: dco_decode_opt_box_autoadd_u_32(raw[7]),
+          width: dco_decode_f_64(raw[6]),
+          color: dco_decode_opt_String(raw[7]),
+          nodeId: dco_decode_opt_box_autoadd_u_32(raw[8]),
         );
       case 1:
         return MathNode_Rule(
@@ -638,6 +667,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           width: dco_decode_f_64(raw[3]),
           height: dco_decode_f_64(raw[4]),
           depth: dco_decode_f_64(raw[5]),
+          leftX: dco_decode_f_64(raw[6]),
         );
       case 1:
         return NodeLayout_Command(
@@ -646,8 +676,9 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           width: dco_decode_f_64(raw[3]),
           height: dco_decode_f_64(raw[4]),
           depth: dco_decode_f_64(raw[5]),
-          childBlocks: dco_decode_list_block_layout(raw[6]),
-          decorations: dco_decode_list_math_node(raw[7]),
+          leftX: dco_decode_f_64(raw[6]),
+          childBlocks: dco_decode_list_block_layout(raw[7]),
+          decorations: dco_decode_list_math_node(raw[8]),
         );
       default:
         throw Exception("unreachable");
@@ -741,19 +772,29 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     var var_width = sse_decode_f_64(deserializer);
     var var_height = sse_decode_f_64(deserializer);
     var var_depth = sse_decode_f_64(deserializer);
+    var var_caretPositions = sse_decode_list_prim_f_64_strict(deserializer);
+    var var_baselineShift = sse_decode_f_64(deserializer);
+    var var_fontScale = sse_decode_f_64(deserializer);
+    var var_leftX = sse_decode_f_64(deserializer);
     var var_children = sse_decode_list_node_layout(deserializer);
     var var_cursorIndex = sse_decode_opt_box_autoadd_u_32(deserializer);
     var var_selection = sse_decode_opt_box_autoadd_block_selection(
       deserializer,
     );
+    var var_isEmpty = sse_decode_bool(deserializer);
     return BlockLayout(
       blockId: var_blockId,
       width: var_width,
       height: var_height,
       depth: var_depth,
+      caretPositions: var_caretPositions,
+      baselineShift: var_baselineShift,
+      fontScale: var_fontScale,
+      leftX: var_leftX,
       children: var_children,
       cursorIndex: var_cursorIndex,
       selection: var_selection,
+      isEmpty: var_isEmpty,
     );
   }
 
@@ -836,6 +877,9 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       case 11:
         return CommandLayoutKind_Text();
       case 12:
+        var var_text = sse_decode_String(deserializer);
+        return CommandLayoutKind_LatexCommandInput(text: var_text);
+      case 13:
         return CommandLayoutKind_Other();
       default:
         throw UnimplementedError('');
@@ -884,31 +928,44 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       case 16:
         return EditorIntent_InsertText();
       case 17:
-        return EditorIntent_MoveLeft();
+        return EditorIntent_InsertCommandInput();
       case 18:
-        return EditorIntent_MoveRight();
+        var var_ch = sse_decode_String(deserializer);
+        return EditorIntent_CommandInputType(ch: var_ch);
       case 19:
-        return EditorIntent_MoveUp();
+        return EditorIntent_CommandInputBackspace();
       case 20:
-        return EditorIntent_MoveDown();
+        return EditorIntent_ResolveCommandInput();
       case 21:
-        return EditorIntent_MoveToStart();
+        return EditorIntent_CancelCommandInput();
       case 22:
-        return EditorIntent_MoveToEnd();
+        return EditorIntent_MoveLeft();
       case 23:
-        return EditorIntent_SelectLeft();
+        return EditorIntent_MoveRight();
       case 24:
-        return EditorIntent_SelectRight();
+        return EditorIntent_EscapeRight();
       case 25:
-        return EditorIntent_SelectAll();
+        return EditorIntent_MoveUp();
       case 26:
-        return EditorIntent_DeleteBackward();
+        return EditorIntent_MoveDown();
       case 27:
-        return EditorIntent_DeleteForward();
+        return EditorIntent_MoveToStart();
       case 28:
+        return EditorIntent_MoveToEnd();
+      case 29:
+        return EditorIntent_SelectLeft();
+      case 30:
+        return EditorIntent_SelectRight();
+      case 31:
+        return EditorIntent_SelectAll();
+      case 32:
+        return EditorIntent_DeleteBackward();
+      case 33:
+        return EditorIntent_DeleteForward();
+      case 34:
         var var_latex = sse_decode_String(deserializer);
         return EditorIntent_SetLatex(latex: var_latex);
-      case 29:
+      case 35:
         var var_blockId = sse_decode_u_32(deserializer);
         var var_caretIndex = sse_decode_u_32(deserializer);
         return EditorIntent_TapBlock(
@@ -933,7 +990,12 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     // Codec=Sse (Serialization based), see doc to use other codecs
     var var_editorLayout = sse_decode_editor_layout(deserializer);
     var var_latex = sse_decode_String(deserializer);
-    return EditorSnapshot(editorLayout: var_editorLayout, latex: var_latex);
+    var var_inCommandInput = sse_decode_bool(deserializer);
+    return EditorSnapshot(
+      editorLayout: var_editorLayout,
+      latex: var_latex,
+      inCommandInput: var_inCommandInput,
+    );
   }
 
   @protected
@@ -991,6 +1053,13 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  Float64List sse_decode_list_prim_f_64_strict(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    var len_ = sse_decode_i_32(deserializer);
+    return deserializer.buffer.getFloat64List(len_);
+  }
+
+  @protected
   Uint8List sse_decode_list_prim_u_8_strict(SseDeserializer deserializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
     var len_ = sse_decode_i_32(deserializer);
@@ -1024,6 +1093,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
         var var_y = sse_decode_f_64(deserializer);
         var var_fontName = sse_decode_String(deserializer);
         var var_scale = sse_decode_f_64(deserializer);
+        var var_width = sse_decode_f_64(deserializer);
         var var_color = sse_decode_opt_String(deserializer);
         var var_nodeId = sse_decode_opt_box_autoadd_u_32(deserializer);
         return MathNode_Glyph(
@@ -1032,6 +1102,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           y: var_y,
           fontName: var_fontName,
           scale: var_scale,
+          width: var_width,
           color: var_color,
           nodeId: var_nodeId,
         );
@@ -1090,12 +1161,14 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
         var var_width = sse_decode_f_64(deserializer);
         var var_height = sse_decode_f_64(deserializer);
         var var_depth = sse_decode_f_64(deserializer);
+        var var_leftX = sse_decode_f_64(deserializer);
         return NodeLayout_Leaf(
           nodeId: var_nodeId,
           glyphs: var_glyphs,
           width: var_width,
           height: var_height,
           depth: var_depth,
+          leftX: var_leftX,
         );
       case 1:
         var var_nodeId = sse_decode_u_32(deserializer);
@@ -1103,6 +1176,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
         var var_width = sse_decode_f_64(deserializer);
         var var_height = sse_decode_f_64(deserializer);
         var var_depth = sse_decode_f_64(deserializer);
+        var var_leftX = sse_decode_f_64(deserializer);
         var var_childBlocks = sse_decode_list_block_layout(deserializer);
         var var_decorations = sse_decode_list_math_node(deserializer);
         return NodeLayout_Command(
@@ -1111,6 +1185,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           width: var_width,
           height: var_height,
           depth: var_depth,
+          leftX: var_leftX,
           childBlocks: var_childBlocks,
           decorations: var_decorations,
         );
@@ -1232,9 +1307,14 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     sse_encode_f_64(self.width, serializer);
     sse_encode_f_64(self.height, serializer);
     sse_encode_f_64(self.depth, serializer);
+    sse_encode_list_prim_f_64_strict(self.caretPositions, serializer);
+    sse_encode_f_64(self.baselineShift, serializer);
+    sse_encode_f_64(self.fontScale, serializer);
+    sse_encode_f_64(self.leftX, serializer);
     sse_encode_list_node_layout(self.children, serializer);
     sse_encode_opt_box_autoadd_u_32(self.cursorIndex, serializer);
     sse_encode_opt_box_autoadd_block_selection(self.selection, serializer);
+    sse_encode_bool(self.isEmpty, serializer);
   }
 
   @protected
@@ -1319,8 +1399,11 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
         sse_encode_u_32(cols, serializer);
       case CommandLayoutKind_Text():
         sse_encode_i_32(11, serializer);
-      case CommandLayoutKind_Other():
+      case CommandLayoutKind_LatexCommandInput(text: final text):
         sse_encode_i_32(12, serializer);
+        sse_encode_String(text, serializer);
+      case CommandLayoutKind_Other():
+        sse_encode_i_32(13, serializer);
     }
   }
 
@@ -1363,36 +1446,49 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
         sse_encode_i_32(15, serializer);
       case EditorIntent_InsertText():
         sse_encode_i_32(16, serializer);
-      case EditorIntent_MoveLeft():
+      case EditorIntent_InsertCommandInput():
         sse_encode_i_32(17, serializer);
-      case EditorIntent_MoveRight():
+      case EditorIntent_CommandInputType(ch: final ch):
         sse_encode_i_32(18, serializer);
-      case EditorIntent_MoveUp():
+        sse_encode_String(ch, serializer);
+      case EditorIntent_CommandInputBackspace():
         sse_encode_i_32(19, serializer);
-      case EditorIntent_MoveDown():
+      case EditorIntent_ResolveCommandInput():
         sse_encode_i_32(20, serializer);
-      case EditorIntent_MoveToStart():
+      case EditorIntent_CancelCommandInput():
         sse_encode_i_32(21, serializer);
-      case EditorIntent_MoveToEnd():
+      case EditorIntent_MoveLeft():
         sse_encode_i_32(22, serializer);
-      case EditorIntent_SelectLeft():
+      case EditorIntent_MoveRight():
         sse_encode_i_32(23, serializer);
-      case EditorIntent_SelectRight():
+      case EditorIntent_EscapeRight():
         sse_encode_i_32(24, serializer);
-      case EditorIntent_SelectAll():
+      case EditorIntent_MoveUp():
         sse_encode_i_32(25, serializer);
-      case EditorIntent_DeleteBackward():
+      case EditorIntent_MoveDown():
         sse_encode_i_32(26, serializer);
-      case EditorIntent_DeleteForward():
+      case EditorIntent_MoveToStart():
         sse_encode_i_32(27, serializer);
-      case EditorIntent_SetLatex(latex: final latex):
+      case EditorIntent_MoveToEnd():
         sse_encode_i_32(28, serializer);
+      case EditorIntent_SelectLeft():
+        sse_encode_i_32(29, serializer);
+      case EditorIntent_SelectRight():
+        sse_encode_i_32(30, serializer);
+      case EditorIntent_SelectAll():
+        sse_encode_i_32(31, serializer);
+      case EditorIntent_DeleteBackward():
+        sse_encode_i_32(32, serializer);
+      case EditorIntent_DeleteForward():
+        sse_encode_i_32(33, serializer);
+      case EditorIntent_SetLatex(latex: final latex):
+        sse_encode_i_32(34, serializer);
         sse_encode_String(latex, serializer);
       case EditorIntent_TapBlock(
         blockId: final blockId,
         caretIndex: final caretIndex,
       ):
-        sse_encode_i_32(29, serializer);
+        sse_encode_i_32(35, serializer);
         sse_encode_u_32(blockId, serializer);
         sse_encode_u_32(caretIndex, serializer);
     }
@@ -1413,6 +1509,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     // Codec=Sse (Serialization based), see doc to use other codecs
     sse_encode_editor_layout(self.editorLayout, serializer);
     sse_encode_String(self.latex, serializer);
+    sse_encode_bool(self.inCommandInput, serializer);
   }
 
   @protected
@@ -1470,6 +1567,16 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  void sse_encode_list_prim_f_64_strict(
+    Float64List self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_i_32(self.length, serializer);
+    serializer.buffer.putFloat64List(self);
+  }
+
+  @protected
   void sse_encode_list_prim_u_8_strict(
     Uint8List self,
     SseSerializer serializer,
@@ -1498,6 +1605,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
         y: final y,
         fontName: final fontName,
         scale: final scale,
+        width: final width,
         color: final color,
         nodeId: final nodeId,
       ):
@@ -1507,6 +1615,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
         sse_encode_f_64(y, serializer);
         sse_encode_String(fontName, serializer);
         sse_encode_f_64(scale, serializer);
+        sse_encode_f_64(width, serializer);
         sse_encode_opt_String(color, serializer);
         sse_encode_opt_box_autoadd_u_32(nodeId, serializer);
       case MathNode_Rule(
@@ -1560,6 +1669,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
         width: final width,
         height: final height,
         depth: final depth,
+        leftX: final leftX,
       ):
         sse_encode_i_32(0, serializer);
         sse_encode_u_32(nodeId, serializer);
@@ -1567,12 +1677,14 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
         sse_encode_f_64(width, serializer);
         sse_encode_f_64(height, serializer);
         sse_encode_f_64(depth, serializer);
+        sse_encode_f_64(leftX, serializer);
       case NodeLayout_Command(
         nodeId: final nodeId,
         kind: final kind,
         width: final width,
         height: final height,
         depth: final depth,
+        leftX: final leftX,
         childBlocks: final childBlocks,
         decorations: final decorations,
       ):
@@ -1582,6 +1694,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
         sse_encode_f_64(width, serializer);
         sse_encode_f_64(height, serializer);
         sse_encode_f_64(depth, serializer);
+        sse_encode_f_64(leftX, serializer);
         sse_encode_list_block_layout(childBlocks, serializer);
         sse_encode_list_math_node(decorations, serializer);
     }

@@ -2,6 +2,7 @@
 mod tests;
 
 pub mod arena;
+pub mod command_table;
 pub mod convert;
 pub mod cursor;
 pub mod intent;

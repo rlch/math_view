@@ -1,7 +1,9 @@
 use crate::editor::arena::Arena;
+use crate::editor::command_table;
 use crate::editor::convert;
 use crate::editor::cursor::{Cursor, Selection};
 use crate::editor::intent::Intent;
+use crate::editor::node_kind::NodeKind;
 use crate::editor::state::State;
 
 /// Pure reducer: apply an intent to the editor state.
@@ -36,6 +38,11 @@ pub fn reduce(state: &mut State, intent: Intent) {
         Intent::MoveRight => {
             state.selection = None;
             state.cursor = state.arena.move_right(&state.cursor);
+        }
+        Intent::EscapeRight => {
+            state.selection = None;
+            state.cursor = state.arena.exit_block_right(state.cursor.parent)
+                .unwrap_or_else(|| state.arena.move_right(&state.cursor));
         }
         Intent::MoveUp => {
             state.selection = None;
@@ -113,6 +120,69 @@ pub fn reduce(state: &mut State, intent: Intent) {
                 Err(_) => {} // Keep current state on parse error
             }
         }
+        Intent::InsertCommandInput => {
+            delete_selection(state);
+            state.arena.insert_at_cursor(
+                &mut state.cursor,
+                NodeKind::LatexCommandInput { text: String::new() },
+            );
+        }
+        Intent::CommandInputType(ch) => {
+            if let Some(left_id) = state.cursor.left {
+                let node = state.arena.node_mut(left_id);
+                if let NodeKind::LatexCommandInput { ref mut text } = node.kind {
+                    text.push(ch);
+                }
+            }
+        }
+        Intent::CommandInputBackspace => {
+            if let Some(left_id) = state.cursor.left {
+                let is_empty = matches!(
+                    &state.arena.node(left_id).kind,
+                    NodeKind::LatexCommandInput { text } if text.is_empty()
+                );
+                if is_empty {
+                    let n = state.arena.node(left_id).clone();
+                    state.arena.remove_node(left_id);
+                    state.cursor.left = n.left;
+                } else {
+                    let node = state.arena.node_mut(left_id);
+                    if let NodeKind::LatexCommandInput { ref mut text } = node.kind {
+                        text.pop();
+                    }
+                }
+            }
+        }
+        Intent::ResolveCurrentCommandInput => {
+            if let Some(left_id) = state.cursor.left {
+                let name = match &state.arena.node(left_id).kind {
+                    NodeKind::LatexCommandInput { text } => text.clone(),
+                    _ => return,
+                };
+                // Remove the LatexCommandInput node
+                let n = state.arena.node(left_id).clone();
+                state.arena.remove_node(left_id);
+                state.cursor.left = n.left;
+                // Resolve using existing logic
+                resolve_command_name(state, name);
+            }
+        }
+        Intent::CancelCommandInput => {
+            if let Some(left_id) = state.cursor.left {
+                if matches!(
+                    &state.arena.node(left_id).kind,
+                    NodeKind::LatexCommandInput { .. }
+                ) {
+                    let n = state.arena.node(left_id).clone();
+                    state.arena.remove_node(left_id);
+                    state.cursor.left = n.left;
+                }
+            }
+        }
+        Intent::ResolveCommandInput(name) => {
+            delete_selection(state);
+            resolve_command_name(state, name);
+        }
         Intent::SetCursor(cursor) => {
             state.selection = None;
             state.cursor = cursor;
@@ -166,6 +236,30 @@ fn take_selection_nodes(state: &mut State) -> Vec<crate::editor::arena::NodeId> 
         state.cursor = left.clone();
     }
     Vec::new()
+}
+
+/// Resolve a command name into the appropriate insertion at cursor.
+fn resolve_command_name(state: &mut State, name: String) {
+    match command_table::lookup(&name) {
+        Some(command_table::Resolved::Command(cmd)) => {
+            state.arena.insert_command(&mut state.cursor, cmd);
+        }
+        Some(command_table::Resolved::Symbol { text, family }) => {
+            state.arena.insert_at_cursor(
+                &mut state.cursor,
+                NodeKind::Symbol {
+                    text,
+                    atom_family: family,
+                },
+            );
+        }
+        None => {
+            // Not found: insert letters as individual symbols
+            for ch in name.chars() {
+                state.arena.insert_symbol_at_cursor(&mut state.cursor, ch);
+            }
+        }
+    }
 }
 
 /// Order two cursors in the same block: returns (left, right).

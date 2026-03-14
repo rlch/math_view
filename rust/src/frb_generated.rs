@@ -329,19 +329,29 @@ impl SseDecode for crate::api::editor_layout::BlockLayout {
         let mut var_width = <f64>::sse_decode(deserializer);
         let mut var_height = <f64>::sse_decode(deserializer);
         let mut var_depth = <f64>::sse_decode(deserializer);
+        let mut var_caretPositions = <Vec<f64>>::sse_decode(deserializer);
+        let mut var_baselineShift = <f64>::sse_decode(deserializer);
+        let mut var_fontScale = <f64>::sse_decode(deserializer);
+        let mut var_leftX = <f64>::sse_decode(deserializer);
         let mut var_children =
             <Vec<crate::api::editor_layout::NodeLayout>>::sse_decode(deserializer);
         let mut var_cursorIndex = <Option<u32>>::sse_decode(deserializer);
         let mut var_selection =
             <Option<crate::api::editor_layout::BlockSelection>>::sse_decode(deserializer);
+        let mut var_isEmpty = <bool>::sse_decode(deserializer);
         return crate::api::editor_layout::BlockLayout {
             block_id: var_blockId,
             width: var_width,
             height: var_height,
             depth: var_depth,
+            caret_positions: var_caretPositions,
+            baseline_shift: var_baselineShift,
+            font_scale: var_fontScale,
+            left_x: var_leftX,
             children: var_children,
             cursor_index: var_cursorIndex,
             selection: var_selection,
+            is_empty: var_isEmpty,
         };
     }
 }
@@ -412,6 +422,12 @@ impl SseDecode for crate::api::editor_layout::CommandLayoutKind {
                 return crate::api::editor_layout::CommandLayoutKind::Text;
             }
             12 => {
+                let mut var_text = <String>::sse_decode(deserializer);
+                return crate::api::editor_layout::CommandLayoutKind::LatexCommandInput {
+                    text: var_text,
+                };
+            }
+            13 => {
                 return crate::api::editor_layout::CommandLayoutKind::Other;
             }
             _ => {
@@ -479,43 +495,62 @@ impl SseDecode for crate::api::editor_api::EditorIntent {
                 return crate::api::editor_api::EditorIntent::InsertText;
             }
             17 => {
-                return crate::api::editor_api::EditorIntent::MoveLeft;
+                return crate::api::editor_api::EditorIntent::InsertCommandInput;
             }
             18 => {
-                return crate::api::editor_api::EditorIntent::MoveRight;
+                let mut var_ch = <String>::sse_decode(deserializer);
+                return crate::api::editor_api::EditorIntent::CommandInputType { ch: var_ch };
             }
             19 => {
-                return crate::api::editor_api::EditorIntent::MoveUp;
+                return crate::api::editor_api::EditorIntent::CommandInputBackspace;
             }
             20 => {
-                return crate::api::editor_api::EditorIntent::MoveDown;
+                return crate::api::editor_api::EditorIntent::ResolveCommandInput;
             }
             21 => {
-                return crate::api::editor_api::EditorIntent::MoveToStart;
+                return crate::api::editor_api::EditorIntent::CancelCommandInput;
             }
             22 => {
-                return crate::api::editor_api::EditorIntent::MoveToEnd;
+                return crate::api::editor_api::EditorIntent::MoveLeft;
             }
             23 => {
-                return crate::api::editor_api::EditorIntent::SelectLeft;
+                return crate::api::editor_api::EditorIntent::MoveRight;
             }
             24 => {
-                return crate::api::editor_api::EditorIntent::SelectRight;
+                return crate::api::editor_api::EditorIntent::EscapeRight;
             }
             25 => {
-                return crate::api::editor_api::EditorIntent::SelectAll;
+                return crate::api::editor_api::EditorIntent::MoveUp;
             }
             26 => {
-                return crate::api::editor_api::EditorIntent::DeleteBackward;
+                return crate::api::editor_api::EditorIntent::MoveDown;
             }
             27 => {
-                return crate::api::editor_api::EditorIntent::DeleteForward;
+                return crate::api::editor_api::EditorIntent::MoveToStart;
             }
             28 => {
+                return crate::api::editor_api::EditorIntent::MoveToEnd;
+            }
+            29 => {
+                return crate::api::editor_api::EditorIntent::SelectLeft;
+            }
+            30 => {
+                return crate::api::editor_api::EditorIntent::SelectRight;
+            }
+            31 => {
+                return crate::api::editor_api::EditorIntent::SelectAll;
+            }
+            32 => {
+                return crate::api::editor_api::EditorIntent::DeleteBackward;
+            }
+            33 => {
+                return crate::api::editor_api::EditorIntent::DeleteForward;
+            }
+            34 => {
                 let mut var_latex = <String>::sse_decode(deserializer);
                 return crate::api::editor_api::EditorIntent::SetLatex { latex: var_latex };
             }
-            29 => {
+            35 => {
                 let mut var_blockId = <u32>::sse_decode(deserializer);
                 let mut var_caretIndex = <u32>::sse_decode(deserializer);
                 return crate::api::editor_api::EditorIntent::TapBlock {
@@ -548,9 +583,11 @@ impl SseDecode for crate::api::editor_api::EditorSnapshot {
         let mut var_editorLayout =
             <crate::api::editor_layout::EditorLayout>::sse_decode(deserializer);
         let mut var_latex = <String>::sse_decode(deserializer);
+        let mut var_inCommandInput = <bool>::sse_decode(deserializer);
         return crate::api::editor_api::EditorSnapshot {
             editor_layout: var_editorLayout,
             latex: var_latex,
+            in_command_input: var_inCommandInput,
         };
     }
 }
@@ -616,6 +653,18 @@ impl SseDecode for Vec<crate::api::math_api::PathCommand> {
     }
 }
 
+impl SseDecode for Vec<f64> {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut len_ = <i32>::sse_decode(deserializer);
+        let mut ans_ = Vec::with_capacity(len_ as usize);
+        for idx_ in 0..len_ {
+            ans_.push(<f64>::sse_decode(deserializer));
+        }
+        return ans_;
+    }
+}
+
 impl SseDecode for Vec<u8> {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
@@ -655,6 +704,7 @@ impl SseDecode for crate::api::math_api::MathNode {
                 let mut var_y = <f64>::sse_decode(deserializer);
                 let mut var_fontName = <String>::sse_decode(deserializer);
                 let mut var_scale = <f64>::sse_decode(deserializer);
+                let mut var_width = <f64>::sse_decode(deserializer);
                 let mut var_color = <Option<String>>::sse_decode(deserializer);
                 let mut var_nodeId = <Option<u32>>::sse_decode(deserializer);
                 return crate::api::math_api::MathNode::Glyph {
@@ -663,6 +713,7 @@ impl SseDecode for crate::api::math_api::MathNode {
                     y: var_y,
                     font_name: var_fontName,
                     scale: var_scale,
+                    width: var_width,
                     color: var_color,
                     node_id: var_nodeId,
                 };
@@ -727,12 +778,14 @@ impl SseDecode for crate::api::editor_layout::NodeLayout {
                 let mut var_width = <f64>::sse_decode(deserializer);
                 let mut var_height = <f64>::sse_decode(deserializer);
                 let mut var_depth = <f64>::sse_decode(deserializer);
+                let mut var_leftX = <f64>::sse_decode(deserializer);
                 return crate::api::editor_layout::NodeLayout::Leaf {
                     node_id: var_nodeId,
                     glyphs: var_glyphs,
                     width: var_width,
                     height: var_height,
                     depth: var_depth,
+                    left_x: var_leftX,
                 };
             }
             1 => {
@@ -742,6 +795,7 @@ impl SseDecode for crate::api::editor_layout::NodeLayout {
                 let mut var_width = <f64>::sse_decode(deserializer);
                 let mut var_height = <f64>::sse_decode(deserializer);
                 let mut var_depth = <f64>::sse_decode(deserializer);
+                let mut var_leftX = <f64>::sse_decode(deserializer);
                 let mut var_childBlocks =
                     <Vec<crate::api::editor_layout::BlockLayout>>::sse_decode(deserializer);
                 let mut var_decorations =
@@ -752,6 +806,7 @@ impl SseDecode for crate::api::editor_layout::NodeLayout {
                     width: var_width,
                     height: var_height,
                     depth: var_depth,
+                    left_x: var_leftX,
                     child_blocks: var_childBlocks,
                     decorations: var_decorations,
                 };
@@ -922,9 +977,14 @@ impl flutter_rust_bridge::IntoDart for crate::api::editor_layout::BlockLayout {
             self.width.into_into_dart().into_dart(),
             self.height.into_into_dart().into_dart(),
             self.depth.into_into_dart().into_dart(),
+            self.caret_positions.into_into_dart().into_dart(),
+            self.baseline_shift.into_into_dart().into_dart(),
+            self.font_scale.into_into_dart().into_dart(),
+            self.left_x.into_into_dart().into_dart(),
             self.children.into_into_dart().into_dart(),
             self.cursor_index.into_into_dart().into_dart(),
             self.selection.into_into_dart().into_dart(),
+            self.is_empty.into_into_dart().into_dart(),
         ]
         .into_dart()
     }
@@ -982,7 +1042,10 @@ impl flutter_rust_bridge::IntoDart for crate::api::editor_layout::CommandLayoutK
             ]
             .into_dart(),
             crate::api::editor_layout::CommandLayoutKind::Text => [11.into_dart()].into_dart(),
-            crate::api::editor_layout::CommandLayoutKind::Other => [12.into_dart()].into_dart(),
+            crate::api::editor_layout::CommandLayoutKind::LatexCommandInput { text } => {
+                [12.into_dart(), text.into_into_dart().into_dart()].into_dart()
+            }
+            crate::api::editor_layout::CommandLayoutKind::Other => [13.into_dart()].into_dart(),
             _ => {
                 unimplemented!("");
             }
@@ -1023,25 +1086,41 @@ impl flutter_rust_bridge::IntoDart for crate::api::editor_api::EditorIntent {
             crate::api::editor_api::EditorIntent::InsertOverline => [14.into_dart()].into_dart(),
             crate::api::editor_api::EditorIntent::InsertUnderline => [15.into_dart()].into_dart(),
             crate::api::editor_api::EditorIntent::InsertText => [16.into_dart()].into_dart(),
-            crate::api::editor_api::EditorIntent::MoveLeft => [17.into_dart()].into_dart(),
-            crate::api::editor_api::EditorIntent::MoveRight => [18.into_dart()].into_dart(),
-            crate::api::editor_api::EditorIntent::MoveUp => [19.into_dart()].into_dart(),
-            crate::api::editor_api::EditorIntent::MoveDown => [20.into_dart()].into_dart(),
-            crate::api::editor_api::EditorIntent::MoveToStart => [21.into_dart()].into_dart(),
-            crate::api::editor_api::EditorIntent::MoveToEnd => [22.into_dart()].into_dart(),
-            crate::api::editor_api::EditorIntent::SelectLeft => [23.into_dart()].into_dart(),
-            crate::api::editor_api::EditorIntent::SelectRight => [24.into_dart()].into_dart(),
-            crate::api::editor_api::EditorIntent::SelectAll => [25.into_dart()].into_dart(),
-            crate::api::editor_api::EditorIntent::DeleteBackward => [26.into_dart()].into_dart(),
-            crate::api::editor_api::EditorIntent::DeleteForward => [27.into_dart()].into_dart(),
+            crate::api::editor_api::EditorIntent::InsertCommandInput => {
+                [17.into_dart()].into_dart()
+            }
+            crate::api::editor_api::EditorIntent::CommandInputType { ch } => {
+                [18.into_dart(), ch.into_into_dart().into_dart()].into_dart()
+            }
+            crate::api::editor_api::EditorIntent::CommandInputBackspace => {
+                [19.into_dart()].into_dart()
+            }
+            crate::api::editor_api::EditorIntent::ResolveCommandInput => {
+                [20.into_dart()].into_dart()
+            }
+            crate::api::editor_api::EditorIntent::CancelCommandInput => {
+                [21.into_dart()].into_dart()
+            }
+            crate::api::editor_api::EditorIntent::MoveLeft => [22.into_dart()].into_dart(),
+            crate::api::editor_api::EditorIntent::MoveRight => [23.into_dart()].into_dart(),
+            crate::api::editor_api::EditorIntent::EscapeRight => [24.into_dart()].into_dart(),
+            crate::api::editor_api::EditorIntent::MoveUp => [25.into_dart()].into_dart(),
+            crate::api::editor_api::EditorIntent::MoveDown => [26.into_dart()].into_dart(),
+            crate::api::editor_api::EditorIntent::MoveToStart => [27.into_dart()].into_dart(),
+            crate::api::editor_api::EditorIntent::MoveToEnd => [28.into_dart()].into_dart(),
+            crate::api::editor_api::EditorIntent::SelectLeft => [29.into_dart()].into_dart(),
+            crate::api::editor_api::EditorIntent::SelectRight => [30.into_dart()].into_dart(),
+            crate::api::editor_api::EditorIntent::SelectAll => [31.into_dart()].into_dart(),
+            crate::api::editor_api::EditorIntent::DeleteBackward => [32.into_dart()].into_dart(),
+            crate::api::editor_api::EditorIntent::DeleteForward => [33.into_dart()].into_dart(),
             crate::api::editor_api::EditorIntent::SetLatex { latex } => {
-                [28.into_dart(), latex.into_into_dart().into_dart()].into_dart()
+                [34.into_dart(), latex.into_into_dart().into_dart()].into_dart()
             }
             crate::api::editor_api::EditorIntent::TapBlock {
                 block_id,
                 caret_index,
             } => [
-                29.into_dart(),
+                35.into_dart(),
                 block_id.into_into_dart().into_dart(),
                 caret_index.into_into_dart().into_dart(),
             ]
@@ -1090,6 +1169,7 @@ impl flutter_rust_bridge::IntoDart for crate::api::editor_api::EditorSnapshot {
         [
             self.editor_layout.into_into_dart().into_dart(),
             self.latex.into_into_dart().into_dart(),
+            self.in_command_input.into_into_dart().into_dart(),
         ]
         .into_dart()
     }
@@ -1138,6 +1218,7 @@ impl flutter_rust_bridge::IntoDart for crate::api::math_api::MathNode {
                 y,
                 font_name,
                 scale,
+                width,
                 color,
                 node_id,
             } => [
@@ -1147,6 +1228,7 @@ impl flutter_rust_bridge::IntoDart for crate::api::math_api::MathNode {
                 y.into_into_dart().into_dart(),
                 font_name.into_into_dart().into_dart(),
                 scale.into_into_dart().into_dart(),
+                width.into_into_dart().into_dart(),
                 color.into_into_dart().into_dart(),
                 node_id.into_into_dart().into_dart(),
             ]
@@ -1220,6 +1302,7 @@ impl flutter_rust_bridge::IntoDart for crate::api::editor_layout::NodeLayout {
                 width,
                 height,
                 depth,
+                left_x,
             } => [
                 0.into_dart(),
                 node_id.into_into_dart().into_dart(),
@@ -1227,6 +1310,7 @@ impl flutter_rust_bridge::IntoDart for crate::api::editor_layout::NodeLayout {
                 width.into_into_dart().into_dart(),
                 height.into_into_dart().into_dart(),
                 depth.into_into_dart().into_dart(),
+                left_x.into_into_dart().into_dart(),
             ]
             .into_dart(),
             crate::api::editor_layout::NodeLayout::Command {
@@ -1235,6 +1319,7 @@ impl flutter_rust_bridge::IntoDart for crate::api::editor_layout::NodeLayout {
                 width,
                 height,
                 depth,
+                left_x,
                 child_blocks,
                 decorations,
             } => [
@@ -1244,6 +1329,7 @@ impl flutter_rust_bridge::IntoDart for crate::api::editor_layout::NodeLayout {
                 width.into_into_dart().into_dart(),
                 height.into_into_dart().into_dart(),
                 depth.into_into_dart().into_dart(),
+                left_x.into_into_dart().into_dart(),
                 child_blocks.into_into_dart().into_dart(),
                 decorations.into_into_dart().into_dart(),
             ]
@@ -1339,9 +1425,14 @@ impl SseEncode for crate::api::editor_layout::BlockLayout {
         <f64>::sse_encode(self.width, serializer);
         <f64>::sse_encode(self.height, serializer);
         <f64>::sse_encode(self.depth, serializer);
+        <Vec<f64>>::sse_encode(self.caret_positions, serializer);
+        <f64>::sse_encode(self.baseline_shift, serializer);
+        <f64>::sse_encode(self.font_scale, serializer);
+        <f64>::sse_encode(self.left_x, serializer);
         <Vec<crate::api::editor_layout::NodeLayout>>::sse_encode(self.children, serializer);
         <Option<u32>>::sse_encode(self.cursor_index, serializer);
         <Option<crate::api::editor_layout::BlockSelection>>::sse_encode(self.selection, serializer);
+        <bool>::sse_encode(self.is_empty, serializer);
     }
 }
 
@@ -1402,8 +1493,12 @@ impl SseEncode for crate::api::editor_layout::CommandLayoutKind {
             crate::api::editor_layout::CommandLayoutKind::Text => {
                 <i32>::sse_encode(11, serializer);
             }
-            crate::api::editor_layout::CommandLayoutKind::Other => {
+            crate::api::editor_layout::CommandLayoutKind::LatexCommandInput { text } => {
                 <i32>::sse_encode(12, serializer);
+                <String>::sse_encode(text, serializer);
+            }
+            crate::api::editor_layout::CommandLayoutKind::Other => {
+                <i32>::sse_encode(13, serializer);
             }
             _ => {
                 unimplemented!("");
@@ -1468,48 +1563,67 @@ impl SseEncode for crate::api::editor_api::EditorIntent {
             crate::api::editor_api::EditorIntent::InsertText => {
                 <i32>::sse_encode(16, serializer);
             }
-            crate::api::editor_api::EditorIntent::MoveLeft => {
+            crate::api::editor_api::EditorIntent::InsertCommandInput => {
                 <i32>::sse_encode(17, serializer);
             }
-            crate::api::editor_api::EditorIntent::MoveRight => {
+            crate::api::editor_api::EditorIntent::CommandInputType { ch } => {
                 <i32>::sse_encode(18, serializer);
+                <String>::sse_encode(ch, serializer);
             }
-            crate::api::editor_api::EditorIntent::MoveUp => {
+            crate::api::editor_api::EditorIntent::CommandInputBackspace => {
                 <i32>::sse_encode(19, serializer);
             }
-            crate::api::editor_api::EditorIntent::MoveDown => {
+            crate::api::editor_api::EditorIntent::ResolveCommandInput => {
                 <i32>::sse_encode(20, serializer);
             }
-            crate::api::editor_api::EditorIntent::MoveToStart => {
+            crate::api::editor_api::EditorIntent::CancelCommandInput => {
                 <i32>::sse_encode(21, serializer);
             }
-            crate::api::editor_api::EditorIntent::MoveToEnd => {
+            crate::api::editor_api::EditorIntent::MoveLeft => {
                 <i32>::sse_encode(22, serializer);
             }
-            crate::api::editor_api::EditorIntent::SelectLeft => {
+            crate::api::editor_api::EditorIntent::MoveRight => {
                 <i32>::sse_encode(23, serializer);
             }
-            crate::api::editor_api::EditorIntent::SelectRight => {
+            crate::api::editor_api::EditorIntent::EscapeRight => {
                 <i32>::sse_encode(24, serializer);
             }
-            crate::api::editor_api::EditorIntent::SelectAll => {
+            crate::api::editor_api::EditorIntent::MoveUp => {
                 <i32>::sse_encode(25, serializer);
             }
-            crate::api::editor_api::EditorIntent::DeleteBackward => {
+            crate::api::editor_api::EditorIntent::MoveDown => {
                 <i32>::sse_encode(26, serializer);
             }
-            crate::api::editor_api::EditorIntent::DeleteForward => {
+            crate::api::editor_api::EditorIntent::MoveToStart => {
                 <i32>::sse_encode(27, serializer);
             }
-            crate::api::editor_api::EditorIntent::SetLatex { latex } => {
+            crate::api::editor_api::EditorIntent::MoveToEnd => {
                 <i32>::sse_encode(28, serializer);
+            }
+            crate::api::editor_api::EditorIntent::SelectLeft => {
+                <i32>::sse_encode(29, serializer);
+            }
+            crate::api::editor_api::EditorIntent::SelectRight => {
+                <i32>::sse_encode(30, serializer);
+            }
+            crate::api::editor_api::EditorIntent::SelectAll => {
+                <i32>::sse_encode(31, serializer);
+            }
+            crate::api::editor_api::EditorIntent::DeleteBackward => {
+                <i32>::sse_encode(32, serializer);
+            }
+            crate::api::editor_api::EditorIntent::DeleteForward => {
+                <i32>::sse_encode(33, serializer);
+            }
+            crate::api::editor_api::EditorIntent::SetLatex { latex } => {
+                <i32>::sse_encode(34, serializer);
                 <String>::sse_encode(latex, serializer);
             }
             crate::api::editor_api::EditorIntent::TapBlock {
                 block_id,
                 caret_index,
             } => {
-                <i32>::sse_encode(29, serializer);
+                <i32>::sse_encode(35, serializer);
                 <u32>::sse_encode(block_id, serializer);
                 <u32>::sse_encode(caret_index, serializer);
             }
@@ -1533,6 +1647,7 @@ impl SseEncode for crate::api::editor_api::EditorSnapshot {
     fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
         <crate::api::editor_layout::EditorLayout>::sse_encode(self.editor_layout, serializer);
         <String>::sse_encode(self.latex, serializer);
+        <bool>::sse_encode(self.in_command_input, serializer);
     }
 }
 
@@ -1583,6 +1698,16 @@ impl SseEncode for Vec<crate::api::math_api::PathCommand> {
     }
 }
 
+impl SseEncode for Vec<f64> {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <i32>::sse_encode(self.len() as _, serializer);
+        for item in self {
+            <f64>::sse_encode(item, serializer);
+        }
+    }
+}
+
 impl SseEncode for Vec<u8> {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
@@ -1613,6 +1738,7 @@ impl SseEncode for crate::api::math_api::MathNode {
                 y,
                 font_name,
                 scale,
+                width,
                 color,
                 node_id,
             } => {
@@ -1622,6 +1748,7 @@ impl SseEncode for crate::api::math_api::MathNode {
                 <f64>::sse_encode(y, serializer);
                 <String>::sse_encode(font_name, serializer);
                 <f64>::sse_encode(scale, serializer);
+                <f64>::sse_encode(width, serializer);
                 <Option<String>>::sse_encode(color, serializer);
                 <Option<u32>>::sse_encode(node_id, serializer);
             }
@@ -1682,6 +1809,7 @@ impl SseEncode for crate::api::editor_layout::NodeLayout {
                 width,
                 height,
                 depth,
+                left_x,
             } => {
                 <i32>::sse_encode(0, serializer);
                 <u32>::sse_encode(node_id, serializer);
@@ -1689,6 +1817,7 @@ impl SseEncode for crate::api::editor_layout::NodeLayout {
                 <f64>::sse_encode(width, serializer);
                 <f64>::sse_encode(height, serializer);
                 <f64>::sse_encode(depth, serializer);
+                <f64>::sse_encode(left_x, serializer);
             }
             crate::api::editor_layout::NodeLayout::Command {
                 node_id,
@@ -1696,6 +1825,7 @@ impl SseEncode for crate::api::editor_layout::NodeLayout {
                 width,
                 height,
                 depth,
+                left_x,
                 child_blocks,
                 decorations,
             } => {
@@ -1705,6 +1835,7 @@ impl SseEncode for crate::api::editor_layout::NodeLayout {
                 <f64>::sse_encode(width, serializer);
                 <f64>::sse_encode(height, serializer);
                 <f64>::sse_encode(depth, serializer);
+                <f64>::sse_encode(left_x, serializer);
                 <Vec<crate::api::editor_layout::BlockLayout>>::sse_encode(child_blocks, serializer);
                 <Vec<crate::api::math_api::MathNode>>::sse_encode(decorations, serializer);
             }

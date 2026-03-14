@@ -1,18 +1,21 @@
 import 'dart:math' as math;
-import 'dart:ui' as ui;
 
+import 'package:flutter/rendering.dart';
 import 'package:flutter/widgets.dart';
 
 import '../rust/api/editor_layout.dart';
 import '../rust/api/math_api.dart';
+import 'editable_math_line.dart';
+import 'math_leaf.dart';
+import 'math_line.dart';
 import 'math_paint.dart';
 
-/// Renders a math expression from an [EditorLayout] tree.
+/// Builds a widget tree from a [BlockLayout] tree.
 ///
-/// Uses flat (absolute-coordinate) painting for glyphs — katex-rs is
-/// authoritative for all positioning. The [BlockLayout] tree structure
-/// provides cursor/selection scoping and hit testing (tap → block + gap).
-class MathBlockWidget extends LeafRenderObjectWidget {
+/// Each block becomes a [MathLine] (or [EditableMathLine] if editable),
+/// each leaf node becomes a [MathLeaf], and each command node becomes
+/// a [CommandWidget] with its own children and decorations.
+class MathBlockWidget extends StatelessWidget {
   final BlockLayout block;
 
   /// Untagged decoration nodes (fraction bars, radical signs) from katex-rs
@@ -38,78 +41,207 @@ class MathBlockWidget extends LeafRenderObjectWidget {
   });
 
   @override
-  RenderMathBlock createRenderObject(BuildContext context) {
-    return RenderMathBlock(
-      block: block,
-      untaggedGlyphs: untaggedGlyphs,
-      isEditable: isEditable,
+  Widget build(BuildContext context) {
+    final blockWidget = _buildBlock(block);
+
+    if (untaggedGlyphs.isNotEmpty) {
+      final rootMinX = block.leftX;
+      return CustomPaint(
+        foregroundPainter: _UntaggedPainter(
+          glyphs: untaggedGlyphs,
+          fontSize: fontSize,
+          color: color,
+          baselineFromTop: block.height * fontSize,
+          originXEm: rootMinX,
+        ),
+        child: blockWidget,
+      );
+    }
+
+    return blockWidget;
+  }
+
+  Widget _buildBlock(BlockLayout block) {
+    final children = block.children
+        .map((node) => AbsolutePosition(
+              xEm: switch (node) {
+                NodeLayout_Leaf() => node.leftX,
+                NodeLayout_Command() => node.leftX,
+              },
+              child: _buildNode(node),
+            ))
+        .toList();
+
+    if (isEditable) {
+      // Suppress block-level cursor when a LatexCommandInput is active
+      // (it draws its own cursor internally).
+      final hasCommandInput = block.children.any((n) =>
+          n is NodeLayout_Command &&
+          n.kind is CommandLayoutKind_LatexCommandInput);
+      return EditableMathLine(
+        blockId: block.blockId,
+        fontSize: fontSize,
+        caretPositions: block.caretPositions,
+        cursorScale: block.fontScale,
+        cursorBaselineShift: block.baselineShift,
+        cursorIndex: hasCommandInput ? null : block.cursorIndex,
+        selectionStart: block.selection?.start,
+        selectionEnd: block.selection?.end,
+        cursorColor: cursorColor,
+        cursorOpacity: cursorOpacity,
+        selectionColor: selectionColor,
+        isEmpty: block.isEmpty,
+        children: children,
+      );
+    }
+
+    return MathLine(fontSize: fontSize, children: children);
+  }
+
+  Widget _buildNode(NodeLayout node) {
+    switch (node) {
+      case NodeLayout_Leaf():
+        return MathLeaf(glyphs: node.glyphs, fontSize: fontSize, color: color);
+      case NodeLayout_Command():
+        // LatexCommandInput: render as styled inline box instead of normal command
+        if (node.kind is CommandLayoutKind_LatexCommandInput) {
+          final lciKind = node.kind as CommandLayoutKind_LatexCommandInput;
+          return LatexCommandInputWidget(
+            text: lciKind.text,
+            fontSize: fontSize,
+            cursorColor: cursorColor,
+            cursorOpacity: cursorOpacity,
+          );
+        }
+        final childBlockWidgets = node.childBlocks
+            .map((b) => AbsolutePosition(
+                  xEm: b.leftX,
+                  child: _buildBlock(b),
+                ))
+            .toList();
+        return CommandWidget(
+          decorations: node.decorations,
+          nodeWidth: node.width,
+          nodeHeight: node.height,
+          nodeDepth: node.depth,
+          nodeLeftX: node.leftX,
+          fontSize: fontSize,
+          color: color,
+          children: childBlockWidgets,
+        );
+    }
+  }
+}
+
+/// Renders a command node (frac, sqrt, etc.) with decoration painting
+/// and absolutely-positioned child blocks.
+class CommandWidget extends MultiChildRenderObjectWidget {
+  final List<MathNode> decorations;
+  final double nodeWidth;
+  final double nodeHeight;
+  final double nodeDepth;
+  final double nodeLeftX;
+  final double fontSize;
+  final Color color;
+
+  const CommandWidget({
+    super.key,
+    required this.decorations,
+    required this.nodeWidth,
+    required this.nodeHeight,
+    required this.nodeDepth,
+    required this.nodeLeftX,
+    required this.fontSize,
+    required this.color,
+    super.children,
+  });
+
+  @override
+  RenderCommandBox createRenderObject(BuildContext context) {
+    return RenderCommandBox(
+      decorations: decorations,
+      nodeWidth: nodeWidth,
+      nodeHeight: nodeHeight,
+      nodeDepth: nodeDepth,
+      nodeLeftX: nodeLeftX,
       fontSize: fontSize,
       color: color,
-      cursorColor: cursorColor,
-      cursorOpacity: cursorOpacity,
-      selectionColor: selectionColor,
     );
   }
 
   @override
-  void updateRenderObject(BuildContext context, RenderMathBlock renderObject) {
+  void updateRenderObject(BuildContext context, RenderCommandBox renderObject) {
     renderObject
-      ..block = block
-      ..untaggedGlyphs = untaggedGlyphs
-      ..isEditable = isEditable
+      ..decorations = decorations
+      ..nodeWidth = nodeWidth
+      ..nodeHeight = nodeHeight
+      ..nodeDepth = nodeDepth
+      ..nodeLeftX = nodeLeftX
       ..fontSize = fontSize
-      ..color = color
-      ..cursorColor = cursorColor
-      ..cursorOpacity = cursorOpacity
-      ..selectionColor = selectionColor;
+      ..color = color;
   }
 }
 
-/// Flat-painting RenderBox that paints all glyphs at their absolute katex-rs
-/// positions, with cursor and selection overlays scoped to block height.
-class RenderMathBlock extends RenderBox {
-  RenderMathBlock({
-    required BlockLayout block,
-    required List<MathNode> untaggedGlyphs,
-    required bool isEditable,
+/// RenderBox for command nodes. Positions child blocks at absolute offsets,
+/// baseline-aligns them, and paints decorations (fraction bars, radical signs).
+class RenderCommandBox extends RenderBox
+    with
+        ContainerRenderObjectMixin<RenderBox, MathParentData>,
+        RenderBoxContainerDefaultsMixin<RenderBox, MathParentData> {
+  RenderCommandBox({
+    required List<MathNode> decorations,
+    required double nodeWidth,
+    required double nodeHeight,
+    required double nodeDepth,
+    required double nodeLeftX,
     required double fontSize,
     required Color color,
-    required Color cursorColor,
-    required double cursorOpacity,
-    required Color selectionColor,
-  })  : _block = block,
-        _untaggedGlyphs = untaggedGlyphs,
-        _isEditable = isEditable,
+  })  : _decorations = decorations,
+        _nodeWidth = nodeWidth,
+        _nodeHeight = nodeHeight,
+        _nodeDepth = nodeDepth,
+        _nodeLeftX = nodeLeftX,
         _fontSize = fontSize,
-        _color = color,
-        _cursorColor = cursorColor,
-        _cursorOpacity = cursorOpacity,
-        _selectionColor = selectionColor;
+        _color = color;
 
-  BlockLayout _block;
-  set block(BlockLayout value) {
-    _block = value;
-    markNeedsLayout();
-  }
-
-  List<MathNode> _untaggedGlyphs;
-  set untaggedGlyphs(List<MathNode> value) {
-    _untaggedGlyphs = value;
-    markNeedsLayout();
-  }
-
-  bool _isEditable;
-  set isEditable(bool value) {
-    if (_isEditable == value) return;
-    _isEditable = value;
+  List<MathNode> _decorations;
+  set decorations(List<MathNode> value) {
+    _decorations = value;
     markNeedsPaint();
+  }
+
+  double _nodeWidth;
+  set nodeWidth(double value) {
+    if (_nodeWidth == value) return;
+    _nodeWidth = value;
+    markNeedsLayout();
+  }
+
+  double _nodeHeight;
+  set nodeHeight(double value) {
+    if (_nodeHeight == value) return;
+    _nodeHeight = value;
+    markNeedsLayout();
+  }
+
+  double _nodeDepth;
+  set nodeDepth(double value) {
+    if (_nodeDepth == value) return;
+    _nodeDepth = value;
+    markNeedsLayout();
+  }
+
+  double _nodeLeftX;
+  set nodeLeftX(double value) {
+    if (_nodeLeftX == value) return;
+    _nodeLeftX = value;
+    markNeedsLayout();
   }
 
   double _fontSize;
   set fontSize(double value) {
     if (_fontSize == value) return;
     _fontSize = value;
-    _fontMetricsForSize = 0;
     markNeedsLayout();
   }
 
@@ -118,6 +250,193 @@ class RenderMathBlock extends RenderBox {
     if (_color == value) return;
     _color = value;
     markNeedsPaint();
+  }
+
+  double _originXEm = 0;
+  double _maxHeightAboveBaseline = 0;
+
+  @override
+  void setupParentData(RenderBox child) {
+    if (child.parentData is! MathParentData) {
+      child.parentData = MathParentData();
+    }
+  }
+
+  @override
+  void performLayout() {
+    // Vertical extents from Rust (accurate, from katex-rs absolute positions)
+    final maxAscent = _nodeHeight * _fontSize;
+    final maxDescent = _nodeDepth * _fontSize;
+
+    _originXEm = _nodeLeftX;
+    _maxHeightAboveBaseline = maxAscent;
+
+    // Layout children, position at absolute offsets with baseline alignment,
+    // and compute width from actual rendered sizes.
+    double maxRight = 0;
+    var child = firstChild;
+    while (child != null) {
+      child.layout(const BoxConstraints(), parentUsesSize: true);
+      final pd = child.parentData! as MathParentData;
+      final childBaseline =
+          child.getDistanceToBaseline(TextBaseline.alphabetic) ??
+              child.size.height;
+      final dx = (pd.absoluteXEm - _originXEm) * _fontSize;
+      final dy = maxAscent - childBaseline;
+      pd.offset = Offset(dx, dy);
+      maxRight = math.max(maxRight, dx + child.size.width);
+      child = childAfter(child);
+    }
+
+    // Use Rust command width if larger than rendered children
+    final cmdWidthPx = _nodeWidth * _fontSize;
+    final totalWidth = math.max(maxRight, cmdWidthPx);
+    size = constraints.constrain(Size(totalWidth, maxAscent + maxDescent));
+
+    // Center empty child blocks within the Rust command width (= fraction bar span).
+    child = firstChild;
+    while (child != null) {
+      if (child is RenderEditableMathLine && child.isEmpty) {
+        final pd = child.parentData! as MathParentData;
+        final centeredDx = (cmdWidthPx - child.size.width) / 2;
+        pd.offset = Offset(centeredDx, pd.offset.dy);
+      }
+      child = childAfter(child);
+    }
+  }
+
+  @override
+  double? computeDistanceToActualBaseline(TextBaseline baseline) {
+    return _maxHeightAboveBaseline;
+  }
+
+  @override
+  bool hitTestChildren(BoxHitTestResult result, {required Offset position}) {
+    return defaultHitTestChildren(result, position: position);
+  }
+
+  @override
+  void paint(PaintingContext context, Offset offset) {
+    // Paint decorations at relative positions
+    final canvas = context.canvas;
+    final shifted = offset.translate(-_originXEm * _fontSize, 0);
+    final bft = _maxHeightAboveBaseline;
+
+    for (final deco in _decorations) {
+      switch (deco) {
+        case MathNode_Glyph():
+          MathPaint.paintGlyph(canvas, shifted, bft, _fontSize, _color, deco);
+        case MathNode_Rule():
+          MathPaint.paintRule(canvas, shifted, bft, _fontSize, _color, deco);
+        case MathNode_SvgPath():
+          MathPaint.paintSvgPath(canvas, shifted, bft, _fontSize, _color, deco);
+      }
+    }
+
+    // Paint children
+    defaultPaint(context, offset);
+  }
+
+  @override
+  double computeMinIntrinsicWidth(double height) {
+    double total = 0;
+    var child = firstChild;
+    while (child != null) {
+      total += child.getMinIntrinsicWidth(height);
+      child = childAfter(child);
+    }
+    return total;
+  }
+
+  @override
+  double computeMaxIntrinsicWidth(double height) =>
+      computeMinIntrinsicWidth(height);
+
+  @override
+  double computeMinIntrinsicHeight(double width) {
+    double maxHeight = 0;
+    var child = firstChild;
+    while (child != null) {
+      maxHeight = math.max(maxHeight, child.getMinIntrinsicHeight(width));
+      child = childAfter(child);
+    }
+    return maxHeight;
+  }
+
+  @override
+  double computeMaxIntrinsicHeight(double width) =>
+      computeMinIntrinsicHeight(width);
+}
+
+// ---------------------------------------------------------------------------
+// LatexCommandInput widget — inline command input box
+// ---------------------------------------------------------------------------
+
+/// Renders a `\commandname` input box inline in the math expression.
+/// Shows a colored background with the backslash prefix and typed text,
+/// plus a blinking cursor at the end.
+class LatexCommandInputWidget extends LeafRenderObjectWidget {
+  final String text;
+  final double fontSize;
+  final Color cursorColor;
+  final double cursorOpacity;
+
+  const LatexCommandInputWidget({
+    super.key,
+    required this.text,
+    required this.fontSize,
+    required this.cursorColor,
+    required this.cursorOpacity,
+  });
+
+  @override
+  RenderLatexCommandInput createRenderObject(BuildContext context) {
+    return RenderLatexCommandInput(
+      text: text,
+      fontSize: fontSize,
+      cursorColor: cursorColor,
+      cursorOpacity: cursorOpacity,
+    );
+  }
+
+  @override
+  void updateRenderObject(
+    BuildContext context,
+    RenderLatexCommandInput renderObject,
+  ) {
+    renderObject
+      ..text = text
+      ..fontSize = fontSize
+      ..cursorColor = cursorColor
+      ..cursorOpacity = cursorOpacity;
+  }
+}
+
+class RenderLatexCommandInput extends RenderBox {
+  RenderLatexCommandInput({
+    required String text,
+    required double fontSize,
+    required Color cursorColor,
+    required double cursorOpacity,
+  })  : _text = text,
+        _fontSize = fontSize,
+        _cursorColor = cursorColor,
+        _cursorOpacity = cursorOpacity;
+
+  String _text;
+  set text(String value) {
+    if (_text == value) return;
+    _text = value;
+    _textPainter = null;
+    markNeedsLayout();
+  }
+
+  double _fontSize;
+  set fontSize(double value) {
+    if (_fontSize == value) return;
+    _fontSize = value;
+    _textPainter = null;
+    markNeedsLayout();
   }
 
   Color _cursorColor;
@@ -134,413 +453,137 @@ class RenderMathBlock extends RenderBox {
     markNeedsPaint();
   }
 
-  Color _selectionColor;
-  set selectionColor(Color value) {
-    if (_selectionColor == value) return;
-    _selectionColor = value;
-    markNeedsPaint();
-  }
+  TextPainter? _textPainter;
+  double _baseline = 0;
 
-  // -- Cached layout state --
-  List<MathNode> _allGlyphs = const [];
-  double _exprWidth = 0; // em
-  double _exprHeight = 0; // above baseline, em
-  double _exprDepth = 0; // below baseline, em
-
-  // Font metrics cache (for minimum height / baseline)
-  double _fontAscent = 0;
-  double _fontDescent = 0;
-  double _fontMetricsForSize = 0;
-
-  // Cursor / selection paint info (pixels, widget-local)
-  _CursorPaint? _cursorPaint;
-  _SelectionPaint? _selectionPaint;
-
-  double get _baselineFromTop =>
-      math.max(_exprHeight * _fontSize, _fontAscent);
-
-  void _ensureFontMetrics() {
-    if (_fontMetricsForSize == _fontSize) return;
+  TextPainter _ensureTextPainter() {
+    if (_textPainter != null) return _textPainter!;
     final tp = TextPainter(
       text: TextSpan(
-        text: 'M',
+        text: '\\$_text',
         style: TextStyle(
-          fontFamily: 'KaTeX_Main',
-          fontSize: _fontSize,
-          package: 'math_view',
+          fontFamily: 'monospace',
+          fontSize: _fontSize * 0.85,
+          color: _cursorColor,
+          height: 1.0,
         ),
       ),
-      textDirection: ui.TextDirection.ltr,
+      textDirection: TextDirection.ltr,
     )..layout();
-    _fontAscent =
-        tp.computeDistanceToActualBaseline(TextBaseline.alphabetic);
-    _fontDescent = tp.height - _fontAscent;
-    _fontMetricsForSize = _fontSize;
+    _textPainter = tp;
+    return tp;
   }
 
   @override
   void performLayout() {
-    _ensureFontMetrics();
-    _allGlyphs = _collectAllGlyphs(_block);
-    _allGlyphs.addAll(_untaggedGlyphs);
-    _computeExprExtents();
-
-    final ascent = _baselineFromTop;
-    final descent = math.max(_exprDepth * _fontSize, _fontDescent);
-    final w = _exprWidth * _fontSize;
-    final h = ascent + descent;
-
+    final tp = _ensureTextPainter();
+    _baseline = tp.computeDistanceToActualBaseline(TextBaseline.alphabetic);
+    final padding = _fontSize * 0.1;
     size = constraints.constrain(Size(
-      math.max(w, _isEditable ? 2.0 : 0.0),
-      math.max(h, _fontSize),
+      tp.width + padding * 2 + 1.5, // +1.5 for cursor
+      tp.height + padding * 2,
     ));
-
-    if (_isEditable) {
-      _cursorPaint = _buildCursorPaint(_block);
-      _selectionPaint = _buildSelectionPaint(_block);
-    }
-  }
-
-  void _computeExprExtents() {
-    if (_allGlyphs.isEmpty) {
-      _exprWidth = _exprHeight = _exprDepth = 0;
-      return;
-    }
-    double minX = double.infinity, maxX = double.negativeInfinity;
-    double maxH = 0.0, maxD = 0.0;
-    for (final g in _allGlyphs) {
-      final b = _mathNodeBounds(g);
-      minX = math.min(minX, b.x);
-      maxX = math.max(maxX, b.rightX);
-      maxH = math.max(maxH, b.above);
-      maxD = math.max(maxD, b.below);
-    }
-    _exprWidth = maxX > minX ? maxX - minX : 0;
-    _exprHeight = maxH.clamp(0, double.infinity);
-    _exprDepth = maxD.clamp(0, double.infinity);
   }
 
   @override
-  double? computeDistanceToActualBaseline(TextBaseline baseline) =>
-      _baselineFromTop;
-
-  @override
-  double computeMinIntrinsicWidth(double height) =>
-      (_block.width) * _fontSize;
-
-  @override
-  double computeMaxIntrinsicWidth(double height) =>
-      computeMinIntrinsicWidth(height);
-
-  @override
-  double computeMinIntrinsicHeight(double width) {
-    _ensureFontMetrics();
-    final h = (_block.height + _block.depth) * _fontSize;
-    return math.max(h, _fontSize);
+  double? computeDistanceToActualBaseline(TextBaseline baseline) {
+    final padding = _fontSize * 0.1;
+    return _baseline + padding;
   }
-
-  @override
-  double computeMaxIntrinsicHeight(double width) =>
-      computeMinIntrinsicHeight(width);
-
-  // ---------- Painting ----------
 
   @override
   void paint(PaintingContext context, Offset offset) {
     final canvas = context.canvas;
-    final bft = _baselineFromTop;
+    final padding = _fontSize * 0.1;
+    final tp = _ensureTextPainter();
 
-    // Selection highlight (behind glyphs)
-    if (_selectionPaint case final sel?) {
-      canvas.drawRect(
-        Rect.fromLTWH(
-          offset.dx + sel.x, offset.dy + sel.top, sel.width, sel.height,
-        ),
-        Paint()..color = _selectionColor,
-      );
-    }
+    // Background
+    final bgRect = Rect.fromLTWH(
+      offset.dx,
+      offset.dy,
+      size.width,
+      size.height,
+    );
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(bgRect, Radius.circular(padding)),
+      Paint()..color = _cursorColor.withValues(alpha: 0.1),
+    );
+    // Border
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(bgRect, Radius.circular(padding)),
+      Paint()
+        ..color = _cursorColor.withValues(alpha: 0.4)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1.0,
+    );
 
-    // All glyphs at absolute katex-rs positions
-    for (final node in _allGlyphs) {
-      switch (node) {
-        case MathNode_Glyph():
-          MathPaint.paintGlyph(canvas, offset, bft, _fontSize, _color, node);
-        case MathNode_Rule():
-          MathPaint.paintRule(canvas, offset, bft, _fontSize, _color, node);
-        case MathNode_SvgPath():
-          MathPaint.paintSvgPath(canvas, offset, bft, _fontSize, _color, node);
-      }
-    }
+    // Text
+    tp.paint(canvas, offset.translate(padding, padding));
 
-    // Cursor (in front of glyphs)
-    if (_cursorPaint case final cur? when _cursorOpacity > 0) {
-      canvas.drawRect(
-        Rect.fromLTWH(
-          offset.dx + cur.x - 0.75,
-          offset.dy + cur.top,
-          1.5,
-          cur.height,
-        ),
-        Paint()..color = _cursorColor.withValues(alpha: _cursorOpacity),
+    // Cursor
+    if (_cursorOpacity > 0) {
+      final cursorX = offset.dx + padding + tp.width;
+      final cursorTop = offset.dy + padding;
+      final cursorBottom = offset.dy + padding + tp.height;
+      canvas.drawLine(
+        Offset(cursorX, cursorTop),
+        Offset(cursorX, cursorBottom),
+        Paint()
+          ..color = _cursorColor.withValues(alpha: _cursorOpacity)
+          ..strokeWidth = 1.5
+          ..style = PaintingStyle.stroke,
       );
     }
   }
-
-  // ---------- Hit testing ----------
 
   @override
-  bool hitTestSelf(Offset position) => _isEditable;
-
-  /// Resolve a local tap position into (blockId, caretIndex).
-  (int, int) hitTestForCaret(Offset localPosition) {
-    final bft = _baselineFromTop;
-    final xEm = localPosition.dx / _fontSize;
-    final yEm = (bft - localPosition.dy) / _fontSize; // positive = above baseline
-    return _hitTestBlock(_block, xEm, yEm);
-  }
-
-  // ---------- Private: cursor / selection ----------
-
-  _CursorPaint? _buildCursorPaint(BlockLayout block, {double? fallbackXEm}) {
-    if (block.cursorIndex != null) {
-      final idx = block.cursorIndex!;
-      final xEm = block.children.isEmpty
-          ? (fallbackXEm ?? 0.0)
-          : _gapXEm(block, idx);
-      final bounds = _blockBoundsEm(block);
-      final bft = _baselineFromTop;
-      return _CursorPaint(
-        x: xEm * _fontSize,
-        top: bft - bounds.above * _fontSize,
-        height: math.max((bounds.above + bounds.below) * _fontSize, _fontSize * 0.6),
-      );
-    }
-    for (final child in block.children) {
-      if (child is NodeLayout_Command) {
-        final cmdCx = (_nodeLeftXEm(child) + _nodeRightXEm(child)) / 2;
-        for (final cb in child.childBlocks) {
-          final info = _buildCursorPaint(cb, fallbackXEm: cmdCx);
-          if (info != null) return info;
-        }
-      }
-    }
-    return null;
-  }
-
-  _SelectionPaint? _buildSelectionPaint(BlockLayout block) {
-    if (block.selection case final sel?) {
-      final startX = _gapXEm(block, sel.start);
-      final endX = _gapXEm(block, sel.end);
-      final bounds = _blockBoundsEm(block);
-      final bft = _baselineFromTop;
-      final leftX = math.min(startX, endX);
-      final rightX = math.max(startX, endX);
-      return _SelectionPaint(
-        x: leftX * _fontSize,
-        top: bft - bounds.above * _fontSize,
-        width: (rightX - leftX) * _fontSize,
-        height: (bounds.above + bounds.below) * _fontSize,
-      );
-    }
-    for (final child in block.children) {
-      if (child is NodeLayout_Command) {
-        for (final cb in child.childBlocks) {
-          final info = _buildSelectionPaint(cb);
-          if (info != null) return info;
-        }
-      }
-    }
-    return null;
-  }
-
-  /// X-position (em) of the gap at [gapIndex] within [block].
-  double _gapXEm(BlockLayout block, int gapIndex) {
-    if (block.children.isEmpty) return 0;
-    if (gapIndex <= 0) return _nodeLeftXEm(block.children.first);
-    if (gapIndex >= block.children.length) {
-      return _nodeRightXEm(block.children.last);
-    }
-    return (_nodeRightXEm(block.children[gapIndex - 1]) +
-            _nodeLeftXEm(block.children[gapIndex])) /
-        2;
-  }
-
-  (int, int) _hitTestBlock(BlockLayout block, double xEm, double yEm) {
-    // Try child blocks of command nodes (depth-first for deepest match)
-    for (final child in block.children) {
-      if (child is NodeLayout_Command) {
-        for (final cb in child.childBlocks) {
-          final b = _blockBoundsEm(cb);
-          // Generous padding so empty-ish blocks are hittable
-          if (xEm >= b.left - 0.15 &&
-              xEm <= b.right + 0.15 &&
-              yEm >= -b.below - 0.15 &&
-              yEm <= b.above + 0.15) {
-            return _hitTestBlock(cb, xEm, yEm);
-          }
-        }
-      }
-    }
-    return (block.blockId, _nearestGap(block, xEm));
-  }
-
-  int _nearestGap(BlockLayout block, double xEm) {
-    if (block.children.isEmpty) return 0;
-    double bestDist = double.infinity;
-    int bestIdx = 0;
-    for (int i = 0; i <= block.children.length; i++) {
-      final gx = _gapXEm(block, i);
-      final d = (gx - xEm).abs();
-      if (d < bestDist) {
-        bestDist = d;
-        bestIdx = i;
-      }
-    }
-    return bestIdx;
-  }
+  bool hitTestSelf(Offset position) => true;
 }
 
 // ---------------------------------------------------------------------------
-// Data classes
+// Untagged glyph painter
 // ---------------------------------------------------------------------------
 
-class _CursorPaint {
-  final double x, top, height;
-  _CursorPaint({required this.x, required this.top, required this.height});
-}
+/// Paints orphan decoration nodes (no arena node_id) at absolute positions.
+class _UntaggedPainter extends CustomPainter {
+  final List<MathNode> glyphs;
+  final double fontSize;
+  final Color color;
+  final double baselineFromTop;
+  final double originXEm;
 
-class _SelectionPaint {
-  final double x, top, width, height;
-  _SelectionPaint({
-    required this.x,
-    required this.top,
-    required this.width,
-    required this.height,
+  _UntaggedPainter({
+    required this.glyphs,
+    required this.fontSize,
+    required this.color,
+    required this.baselineFromTop,
+    required this.originXEm,
   });
-}
 
-// ---------------------------------------------------------------------------
-// Helper functions (stateless, operate on tree data)
-// ---------------------------------------------------------------------------
-
-/// Recursively collect every [MathNode] from a [BlockLayout] tree.
-List<MathNode> _collectAllGlyphs(BlockLayout block) {
-  final out = <MathNode>[];
-  _collectFromBlock(block, out);
-  return out;
-}
-
-void _collectFromBlock(BlockLayout block, List<MathNode> out) {
-  for (final child in block.children) {
-    switch (child) {
-      case NodeLayout_Leaf():
-        out.addAll(child.glyphs);
-      case NodeLayout_Command():
-        out.addAll(child.decorations);
-        for (final cb in child.childBlocks) {
-          _collectFromBlock(cb, out);
-        }
+  @override
+  void paint(Canvas canvas, Size size) {
+    final shifted = Offset(-originXEm * fontSize, 0);
+    for (final node in glyphs) {
+      switch (node) {
+        case MathNode_Glyph():
+          MathPaint.paintGlyph(
+              canvas, shifted, baselineFromTop, fontSize, color, node);
+        case MathNode_Rule():
+          MathPaint.paintRule(
+              canvas, shifted, baselineFromTop, fontSize, color, node);
+        case MathNode_SvgPath():
+          MathPaint.paintSvgPath(
+              canvas, shifted, baselineFromTop, fontSize, color, node);
+      }
     }
   }
+
+  @override
+  bool shouldRepaint(_UntaggedPainter old) =>
+      glyphs != old.glyphs ||
+      fontSize != old.fontSize ||
+      color != old.color ||
+      baselineFromTop != old.baselineFromTop ||
+      originXEm != old.originXEm;
 }
 
-/// Bounding box of a single [MathNode] in em units.
-({double x, double rightX, double above, double below}) _mathNodeBounds(
-    MathNode node) {
-  switch (node) {
-    case MathNode_Glyph():
-      final w = 0.5 * node.scale; // approximate
-      return (
-        x: node.x,
-        rightX: node.x + w,
-        above: node.y + node.scale,
-        below: (-node.y).clamp(0.0, double.infinity),
-      );
-    case MathNode_Rule():
-      return (
-        x: node.x,
-        rightX: node.x + node.width,
-        above: node.y + node.height,
-        below: (-node.y).clamp(0.0, double.infinity),
-      );
-    case MathNode_SvgPath():
-      return (
-        x: node.x,
-        rightX: node.x + node.width,
-        above: node.y + node.height,
-        below: (-node.y).clamp(0.0, double.infinity),
-      );
-  }
-}
-
-/// Leftmost x (em) of all glyphs owned by [node].
-double _nodeLeftXEm(NodeLayout node) {
-  switch (node) {
-    case NodeLayout_Leaf():
-      if (node.glyphs.isEmpty) return 0;
-      double v = double.infinity;
-      for (final g in node.glyphs) {
-        v = math.min(v, _mathNodeBounds(g).x);
-      }
-      return v.isFinite ? v : 0;
-    case NodeLayout_Command():
-      double v = double.infinity;
-      for (final g in node.decorations) {
-        v = math.min(v, _mathNodeBounds(g).x);
-      }
-      for (final cb in node.childBlocks) {
-        for (final child in cb.children) {
-          v = math.min(v, _nodeLeftXEm(child));
-        }
-      }
-      return v.isFinite ? v : 0;
-  }
-}
-
-/// Rightmost x (em) of all glyphs owned by [node].
-double _nodeRightXEm(NodeLayout node) {
-  switch (node) {
-    case NodeLayout_Leaf():
-      if (node.glyphs.isEmpty) return 0;
-      double v = double.negativeInfinity;
-      for (final g in node.glyphs) {
-        v = math.max(v, _mathNodeBounds(g).rightX);
-      }
-      return v.isFinite ? v : 0;
-    case NodeLayout_Command():
-      double v = double.negativeInfinity;
-      for (final g in node.decorations) {
-        v = math.max(v, _mathNodeBounds(g).rightX);
-      }
-      for (final cb in node.childBlocks) {
-        for (final child in cb.children) {
-          v = math.max(v, _nodeRightXEm(child));
-        }
-      }
-      return v.isFinite ? v : 0;
-  }
-}
-
-/// Bounding box (em) of all glyphs in a block's subtree.
-({double left, double right, double above, double below}) _blockBoundsEm(
-    BlockLayout block) {
-  final glyphs = _collectAllGlyphs(block);
-  if (glyphs.isEmpty) {
-    return (left: 0, right: 0, above: 0.8, below: 0.2);
-  }
-  double minX = double.infinity, maxX = double.negativeInfinity;
-  double maxH = 0.0, maxD = 0.0;
-  for (final g in glyphs) {
-    final b = _mathNodeBounds(g);
-    minX = math.min(minX, b.x);
-    maxX = math.max(maxX, b.rightX);
-    maxH = math.max(maxH, b.above);
-    maxD = math.max(maxD, b.below);
-  }
-  return (
-    left: minX.isFinite ? minX : 0,
-    right: maxX.isFinite ? maxX : 0,
-    above: maxH,
-    below: maxD,
-  );
-}

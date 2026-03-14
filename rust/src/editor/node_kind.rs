@@ -48,6 +48,11 @@ pub enum NodeKind {
     XArrow { label: String },
     /// `\operatorname{...}` — 1 block: [body]
     OperatorName,
+    /// Transient command input node: user is typing `\commandname`.
+    /// Stores the accumulated command name (e.g. "frac", "alpha").
+    /// Cursor sits right after this node; letters are appended to `text`.
+    /// Resolved on Space/Tab/Enter, cancelled on Escape.
+    LatexCommandInput { text: String },
     /// Opaque LaTeX that we can't structurally edit.
     /// Rendered as a single unit, cursor skips over it.
     Raw(String),
@@ -57,7 +62,7 @@ impl NodeKind {
     /// Number of child blocks this node kind expects.
     pub fn expected_block_count(&self) -> usize {
         match self {
-            NodeKind::Symbol { .. } | NodeKind::Raw(_) => 0,
+            NodeKind::Symbol { .. } | NodeKind::Raw(_) | NodeKind::LatexCommandInput { .. } => 0,
             NodeKind::Frac | NodeKind::SupSub => 2,
             NodeKind::NthRoot => 2,
             NodeKind::Sqrt

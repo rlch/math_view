@@ -26,6 +26,8 @@ pub enum MathNode {
         y: f64,
         font_name: String,
         scale: f64,
+        /// Advance width in em (actual glyph width from font metrics, scaled).
+        width: f64,
         color: Option<String>,
         /// Optional opaque ID for correlating with a source tree (e.g. editor arena).
         node_id: Option<u32>,
@@ -100,6 +102,7 @@ impl From<katex::math_layout::MathNode> for MathNode {
                 y,
                 font_name,
                 scale,
+                width,
                 color,
                 node_id,
             } => Self::Glyph {
@@ -108,6 +111,7 @@ impl From<katex::math_layout::MathNode> for MathNode {
                 y,
                 font_name,
                 scale,
+                width,
                 color,
                 node_id,
             },
@@ -222,9 +226,14 @@ pub fn layout_math_tree(latex: String, display_mode: bool) -> crate::api::editor
                     width: 0.0,
                     height: 0.0,
                     depth: 0.0,
+                    caret_positions: vec![0.0],
+                    baseline_shift: 0.0,
+                    font_scale: 1.0,
+                    left_x: 0.0,
                     children: Vec::new(),
                     cursor_index: None,
                     selection: None,
+                    is_empty: true,
                 },
                 untagged: Vec::new(),
             };

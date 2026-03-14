@@ -2,6 +2,7 @@ import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 
+import 'render/editable_math_line.dart';
 import 'render/math_block_widget.dart';
 import 'rust/api/editor_api.dart';
 
@@ -110,6 +111,37 @@ class _MathEditorState extends State<MathEditor> with TickerProviderStateMixin {
     final meta = HardwareKeyboard.instance.isMetaPressed ||
         HardwareKeyboard.instance.isControlPressed;
 
+    // --- Command input mode ---
+    if (_snapshot.inCommandInput) {
+      if (key == LogicalKeyboardKey.backspace) {
+        _dispatch(const EditorIntent.commandInputBackspace());
+        return KeyEventResult.handled;
+      }
+
+      if (key == LogicalKeyboardKey.space ||
+          key == LogicalKeyboardKey.tab ||
+          key == LogicalKeyboardKey.enter) {
+        _dispatch(const EditorIntent.resolveCommandInput());
+        return KeyEventResult.handled;
+      }
+
+      if (key == LogicalKeyboardKey.escape) {
+        _dispatch(const EditorIntent.cancelCommandInput());
+        return KeyEventResult.handled;
+      }
+
+      if (event.character != null && event.character!.isNotEmpty && !meta) {
+        final ch = event.character!;
+        if (ch.codeUnitAt(0) >= 32) {
+          _dispatch(EditorIntent.commandInputType(ch: ch));
+          return KeyEventResult.handled;
+        }
+      }
+
+      // Any other key cancels command input and falls through
+      _dispatch(const EditorIntent.cancelCommandInput());
+    }
+
     // Navigation
     if (key == LogicalKeyboardKey.arrowLeft) {
       _dispatch(shift
@@ -162,11 +194,20 @@ class _MathEditorState extends State<MathEditor> with TickerProviderStateMixin {
       return KeyEventResult.handled;
     }
 
+    // Space = escape right (MathQuill-style: exit current block)
+    if (key == LogicalKeyboardKey.space && !meta) {
+      _dispatch(const EditorIntent.escapeRight());
+      return KeyEventResult.handled;
+    }
+
     // Character input
     if (event.character != null && event.character!.isNotEmpty && !meta) {
       final ch = event.character!;
-      // Filter out control characters
       if (ch.codeUnitAt(0) >= 32) {
+        if (ch == '\\') {
+          _dispatch(const EditorIntent.insertCommandInput());
+          return KeyEventResult.handled;
+        }
         _dispatch(EditorIntent.insertSymbol(ch: ch));
         return KeyEventResult.handled;
       }
@@ -189,13 +230,13 @@ class _MathEditorState extends State<MathEditor> with TickerProviderStateMixin {
 
     for (final entry in result.path) {
       final target = entry.target;
-      if (target is RenderMathBlock) {
+      if (target is RenderEditableMathLine) {
         final localPos = target.globalToLocal(
           renderBox.localToGlobal(localPosition),
         );
-        final (blockId, caretIndex) = target.hitTestForCaret(localPos);
+        final caretIndex = target.getCaretIndexForPoint(localPos);
         _dispatch(EditorIntent.tapBlock(
-          blockId: blockId,
+          blockId: target.blockId,
           caretIndex: caretIndex,
         ));
         return;

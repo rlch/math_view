@@ -1,6 +1,9 @@
 export 'src/math_editor.dart';
 export 'src/math_view.dart';
-export 'src/render/math_block_widget.dart' show MathBlockWidget, RenderMathBlock;
+export 'src/render/math_block_widget.dart' show MathBlockWidget, CommandWidget, RenderCommandBox;
+export 'src/render/math_line.dart' show MathLine, RenderMathLine, MathParentData, AbsolutePosition;
+export 'src/render/math_leaf.dart' show MathLeaf, RenderMathLeaf;
+export 'src/render/editable_math_line.dart' show EditableMathLine, RenderEditableMathLine;
 export 'src/rust/api/editor_api.dart'
     show
         EditorIntent,

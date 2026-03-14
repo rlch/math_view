@@ -2,6 +2,7 @@ use flutter_rust_bridge::frb;
 
 use crate::api::math_api::MathNode;
 use crate::editor::arena::{Arena, BlockId, NodeId};
+#[cfg(test)]
 use crate::editor::cursor::Cursor;
 use crate::editor::node_kind::NodeKind;
 use crate::editor::state::State;
@@ -29,11 +30,22 @@ pub struct BlockLayout {
     pub width: f64,
     pub height: f64,
     pub depth: f64,
+    /// X-position (em) for each caret gap: index 0 = before first node, index n = after last.
+    pub caret_positions: Vec<f64>,
+    /// Y-offset (em) of this block's leaf text baseline from the expression baseline.
+    /// Numerator blocks have positive values (above), denominator negative (below).
+    pub baseline_shift: f64,
+    /// Effective font-size multiplier for leaf content in this block (1.0 for root, ~0.7 for fractions).
+    pub font_scale: f64,
+    /// Leftmost x-coordinate (em) across all glyphs in this block's subtree.
+    pub left_x: f64,
     pub children: Vec<NodeLayout>,
     /// Caret position if cursor is in this block (index into children gaps: 0 = before first, n = after last).
     pub cursor_index: Option<u32>,
     /// Selection range if active in this block.
     pub selection: Option<BlockSelection>,
+    /// Whether this block has no child nodes (empty placeholder).
+    pub is_empty: bool,
 }
 
 /// Selection range within a block (indices into children gaps).
@@ -55,6 +67,8 @@ pub enum NodeLayout {
         width: f64,
         height: f64,
         depth: f64,
+        /// Leftmost x-coordinate (em) of this node's glyphs.
+        left_x: f64,
     },
     /// A command node (frac, sqrt, etc.) — carries child blocks and decorations.
     Command {
@@ -63,6 +77,8 @@ pub enum NodeLayout {
         width: f64,
         height: f64,
         depth: f64,
+        /// Leftmost x-coordinate (em) of this node's glyphs.
+        left_x: f64,
         child_blocks: Vec<BlockLayout>,
         decorations: Vec<MathNode>,
     },
@@ -84,6 +100,8 @@ pub enum CommandLayoutKind {
     SumLike,
     Matrix { rows: u32, cols: u32 },
     Text,
+    /// Transient command input box: user is typing `\commandname`.
+    LatexCommandInput { text: String },
     Other,
 }
 
@@ -105,6 +123,7 @@ impl From<&NodeKind> for CommandLayoutKind {
                 cols: *cols as u32,
             },
             NodeKind::Text => Self::Text,
+            NodeKind::LatexCommandInput { ref text } => Self::LatexCommandInput { text: text.clone() },
             _ => Self::Other,
         }
     }
@@ -260,6 +279,9 @@ impl BlockCursorInfo {
 // Block layout builder
 // ---------------------------------------------------------------------------
 
+/// Approximate width of one character in the command input box (em units).
+const COMMAND_INPUT_CHAR_WIDTH: f64 = 0.56;
+
 fn build_block_layout(
     arena: &Arena,
     block_id: BlockId,
@@ -270,11 +292,86 @@ fn build_block_layout(
     let mut block_width = 0.0;
     let mut block_height = 0.0;
     let mut block_depth = 0.0;
+    // Track the right edge of the last KaTeX-positioned node, used to anchor
+    // LatexCommandInput nodes which have no KaTeX glyphs.
+    let mut last_right_x = 0.0;
 
     let mut current = arena.block(block_id).first;
     while let Some(nid) = current {
         let node = arena.node(nid);
-        let node_layout = build_node_layout(arena, nid, glyphs, cursor_info);
+
+        let node_layout = if let NodeKind::LatexCommandInput { ref text } = node.kind {
+            // Synthetic layout — KaTeX only emits a \kern for space reservation.
+            let width = (text.len() as f64 + 1.0) * COMMAND_INPUT_CHAR_WIDTH;
+            let left_x = last_right_x;
+            // Don't update last_right_x — KaTeX already shifted subsequent nodes
+            // by the \kern amount, so their glyph positions are correct.
+            NodeLayout::Command {
+                node_id: nid.0,
+                kind: CommandLayoutKind::LatexCommandInput { text: text.clone() },
+                width,
+                height: 0.7,
+                depth: 0.3,
+                left_x,
+                child_blocks: vec![],
+                decorations: vec![],
+            }
+        } else {
+            let mut layout = build_node_layout(arena, nid, glyphs, cursor_info);
+            // Update last_right_x from KaTeX glyph positions
+            let node_glyphs = match &layout {
+                NodeLayout::Leaf { glyphs: g, .. } => g.clone(),
+                NodeLayout::Command { node_id, .. } => {
+                    glyphs.glyphs_for_subtree(arena, NodeId(*node_id))
+                }
+            };
+            let right = compute_right_x(&node_glyphs);
+            if node_glyphs.is_empty() {
+                // Empty command node (e.g. \frac{}{}) — no tagged KaTeX glyphs.
+                // Try to find an untagged Rule (fraction bar) near last_right_x.
+                if let NodeLayout::Command {
+                    ref mut left_x, ref mut width, ref mut height, ref mut depth,
+                    ref mut child_blocks, ..
+                } = layout {
+                    // Search orphans for a Rule whose x >= last_right_x
+                    let bar = glyphs.orphans.iter().find(|g| {
+                        if let MathNode::Rule { x, width: w, .. } = g {
+                            // Bar must start at or after current position
+                            // and be a plausible fraction bar (wider than tall)
+                            *x >= last_right_x - 0.01 && *w > 0.0
+                        } else { false }
+                    });
+
+                    if let Some(MathNode::Rule { x: bar_x, width: bar_w, .. }) = bar {
+                        *left_x = *bar_x;
+                        *width = *bar_w;
+                        if *height == 0.0 { *height = 0.4; }
+                        if *depth == 0.0 { *depth = 0.35; }
+                    } else {
+                        *left_x = last_right_x;
+                        if *width == 0.0 { *width = 0.5; }
+                        if *height == 0.0 { *height = 0.4; }
+                        if *depth == 0.0 { *depth = 0.35; }
+                    }
+                    // Patch empty child blocks to inherit parent position
+                    // and center the caret within the command area.
+                    let cmd_x = *left_x;
+                    let cmd_w = *width;
+                    for cb in child_blocks.iter_mut() {
+                        if cb.is_empty {
+                            cb.left_x = cmd_x;
+                            if cmd_w > 0.0 {
+                                cb.caret_positions = vec![cmd_w / 2.0];
+                            }
+                        }
+                    }
+                    last_right_x = cmd_x + *width;
+                }
+            } else if right > last_right_x {
+                last_right_x = right;
+            }
+            layout
+        };
 
         // Track block extents
         match &node_layout {
@@ -290,6 +387,77 @@ fn build_block_layout(
         current = node.right;
     }
 
+    // Compute caret_positions using the midpoint between adjacent nodes'
+    // right and left edges. This places the cursor in the inter-atom gap
+    // that KaTeX inserts (thin/medium/thick space), instead of jamming
+    // it against the glyph edge. MathQuill achieves the same effect via
+    // CSS margins on DOM elements; we must compute it explicitly.
+    let mut caret_positions = Vec::with_capacity(children.len() + 1);
+    if children.is_empty() {
+        caret_positions.push(0.0);
+    } else {
+        // Collect (left_x, right_x) for each child
+        let mut edges: Vec<(f64, f64)> = Vec::with_capacity(children.len());
+        for child in &children {
+            match child {
+                NodeLayout::Command {
+                    kind: CommandLayoutKind::LatexCommandInput { .. },
+                    left_x, width, ..
+                } => {
+                    edges.push((*left_x, left_x + width));
+                }
+                NodeLayout::Leaf { left_x, glyphs: leaf_glyphs, .. } => {
+                    let right = compute_right_x(leaf_glyphs);
+                    edges.push((*left_x, if right > *left_x { right } else { *left_x }));
+                }
+                NodeLayout::Command { node_id, left_x, width, .. } => {
+                    let subtree = glyphs.glyphs_for_subtree(arena, NodeId(*node_id));
+                    let right = compute_right_x(&subtree);
+                    if subtree.is_empty() {
+                        edges.push((*left_x, left_x + width));
+                    } else {
+                        edges.push((*left_x, right));
+                    }
+                }
+            }
+        }
+
+        // Padding (em) added between cursor and command node edges.
+        // MathQuill uses CSS `padding: 0 .2em` on fractions; we add a
+        // smaller amount since KaTeX already provides some inter-atom space.
+        const CMD_CARET_PAD: f64 = 0.12;
+
+        // caret[0]: left edge of first child, padded left if it's a command
+        let first_pad = if matches!(&children[0],
+            NodeLayout::Command { kind, .. }
+            if !matches!(kind, CommandLayoutKind::LatexCommandInput { .. })
+        ) { CMD_CARET_PAD } else { 0.0 };
+        caret_positions.push(edges[0].0 - first_pad);
+
+        // caret[i] (1..n-1) = midpoint between right of child[i-1] and left of child[i]
+        for i in 1..edges.len() {
+            let prev_right = edges[i - 1].1;
+            let next_left = edges[i].0;
+            caret_positions.push((prev_right + next_left) / 2.0);
+        }
+
+        // caret[n]: right edge of last child, padded right if it's a command
+        let last_pad = if matches!(children.last().unwrap(),
+            NodeLayout::Command { kind, .. }
+            if !matches!(kind, CommandLayoutKind::LatexCommandInput { .. })
+        ) { CMD_CARET_PAD } else { 0.0 };
+        caret_positions.push(edges.last().unwrap().1 + last_pad);
+    }
+
+    let baseline_shift = compute_baseline_shift(&children);
+    let font_scale = compute_font_scale(&children);
+
+    let block_left_x = children.iter().map(|c| match c {
+        NodeLayout::Leaf { left_x, .. } => *left_x,
+        NodeLayout::Command { left_x, .. } => *left_x,
+    }).fold(f64::MAX, f64::min);
+    let block_left_x = if block_left_x == f64::MAX { 0.0 } else { block_left_x };
+
     // Compute cursor_index: count nodes to the left of cursor in this block
     let cursor_index = if cursor_info.cursor_block == Some(block_id) {
         Some(compute_cursor_index(arena, block_id, cursor_info.cursor_left))
@@ -300,14 +468,21 @@ fn build_block_layout(
     // Compute selection range
     let selection = compute_block_selection(arena, block_id, cursor_info);
 
+    let is_empty = arena.block(block_id).first.is_none();
+
     BlockLayout {
         block_id: block_id.0,
         width: block_width,
         height: block_height,
         depth: block_depth,
+        caret_positions,
+        baseline_shift,
+        font_scale,
+        left_x: block_left_x,
         children,
         cursor_index,
         selection,
+        is_empty,
     }
 }
 
@@ -323,12 +498,15 @@ fn build_node_layout(
         let node_glyphs = glyphs.glyphs_for(node_id.0);
         let (width, height, depth) = compute_glyph_extents(&node_glyphs);
 
+        let left_x = compute_left_x(&node_glyphs);
+
         NodeLayout::Leaf {
             node_id: node_id.0,
             glyphs: node_glyphs,
             width,
             height,
             depth,
+            left_x,
         }
     } else {
         // Command node — recurse into child blocks
@@ -344,12 +522,30 @@ fn build_node_layout(
         let all_glyphs = glyphs.glyphs_for_subtree(arena, node_id);
         let (width, height, depth) = compute_glyph_extents(&all_glyphs);
 
+        let left_x = compute_left_x(&all_glyphs);
+
+        // Patch empty child blocks: inherit layout properties from the
+        // command and non-empty siblings so Flutter can position them correctly.
+        //
+        // Empty blocks have no glyphs, so compute_baseline_shift/font_scale
+        // return defaults (0.0/1.0). We must set them to match where KaTeX
+        // would place content if the user typed into the block.
+        //
+        // For fractions (2 blocks): numer gets positive shift, denom negative.
+        // MathQuill uses CSS padding: 0 .2em on fractions for horizontal spacing
+        // and inherits font-size: 90% for both numerator and denominator.
+        let child_blocks = patch_empty_child_blocks(
+            child_blocks, &node.kind, left_x, width,
+        );
+
+
         NodeLayout::Command {
             node_id: node_id.0,
             kind: CommandLayoutKind::from(&node.kind),
             width,
             height,
             depth,
+            left_x,
             child_blocks,
             decorations,
         }
@@ -357,8 +553,161 @@ fn build_node_layout(
 }
 
 // ---------------------------------------------------------------------------
+// Patch empty child blocks
+// ---------------------------------------------------------------------------
+
+/// Patch empty child blocks in a command node so they have correct
+/// baseline_shift, font_scale, left_x, caret_positions, and dimensions.
+///
+/// Without this, empty blocks have shift=0, scale=1.0, and zero dimensions
+/// because `compute_baseline_shift`/`compute_font_scale` derive values from
+/// leaf glyphs — which empty blocks don't have.
+fn patch_empty_child_blocks(
+    mut blocks: Vec<BlockLayout>,
+    kind: &NodeKind,
+    cmd_left_x: f64,
+    cmd_width: f64,
+) -> Vec<BlockLayout> {
+    let has_empty = blocks.iter().any(|b| b.is_empty);
+    if !has_empty {
+        return blocks;
+    }
+
+    // Collect non-empty siblings' baseline_shift and font_scale for inheritance.
+    // For fractions: blocks[0] = numer (shift > 0), blocks[1] = denom (shift < 0).
+    // Known defaults from KaTeX/MathQuill when both blocks are empty:
+    const FRAC_NUMER_SHIFT: f64 = 0.394;  // from BOTH_FILLED diagnostic
+    const FRAC_DENOM_SHIFT: f64 = -0.345;
+    const FRAC_SCALE: f64 = 0.7;          // font-size: 70% for frac children
+
+    match kind {
+        NodeKind::Frac if blocks.len() == 2 => {
+            // Determine shift/scale from non-empty sibling, or use defaults
+            let numer_shift = if !blocks[0].is_empty {
+                blocks[0].baseline_shift
+            } else if !blocks[1].is_empty {
+                // Mirror the denom shift (positive)
+                blocks[1].baseline_shift.abs()
+            } else {
+                FRAC_NUMER_SHIFT
+            };
+            let denom_shift = if !blocks[1].is_empty {
+                blocks[1].baseline_shift
+            } else if !blocks[0].is_empty {
+                // Mirror the numer shift (negative)
+                -blocks[0].baseline_shift.abs()
+            } else {
+                FRAC_DENOM_SHIFT
+            };
+            let scale = if !blocks[0].is_empty {
+                blocks[0].font_scale
+            } else if !blocks[1].is_empty {
+                blocks[1].font_scale
+            } else {
+                FRAC_SCALE
+            };
+
+            for (i, b) in blocks.iter_mut().enumerate() {
+                if b.is_empty {
+                    b.baseline_shift = if i == 0 { numer_shift } else { denom_shift };
+                    b.font_scale = scale;
+                    if cmd_left_x > 0.0 {
+                        b.left_x = cmd_left_x;
+                    }
+                    if cmd_width > 0.0 {
+                        b.caret_positions = vec![cmd_width / 2.0];
+                    }
+                }
+            }
+        }
+        _ => {
+            // Generic: inherit from any non-empty sibling
+            let sibling_shift = blocks.iter()
+                .find(|b| !b.is_empty)
+                .map(|b| b.baseline_shift)
+                .unwrap_or(0.0);
+            let sibling_scale = blocks.iter()
+                .find(|b| !b.is_empty)
+                .map(|b| b.font_scale)
+                .unwrap_or(1.0);
+
+            for b in blocks.iter_mut() {
+                if b.is_empty {
+                    if b.baseline_shift == 0.0 && sibling_shift != 0.0 {
+                        b.baseline_shift = sibling_shift;
+                    }
+                    if (b.font_scale - 1.0).abs() < 0.001 && sibling_scale < 1.0 {
+                        b.font_scale = sibling_scale;
+                    }
+                    if cmd_left_x > 0.0 {
+                        b.left_x = cmd_left_x;
+                    }
+                    if cmd_width > 0.0 {
+                        b.caret_positions = vec![cmd_width / 2.0];
+                    }
+                }
+            }
+        }
+    }
+
+    blocks
+}
+
+// ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
+
+fn compute_left_x(nodes: &[MathNode]) -> f64 {
+    let mut min_x = f64::MAX;
+    for node in nodes {
+        let x = match node {
+            MathNode::Glyph { x, .. } => *x,
+            MathNode::Rule { x, .. } => *x,
+            MathNode::SvgPath { x, .. } => *x,
+        };
+        min_x = min_x.min(x);
+    }
+    if min_x == f64::MAX { 0.0 } else { min_x }
+}
+
+fn compute_right_x(nodes: &[MathNode]) -> f64 {
+    let mut max_x = f64::MIN;
+    for node in nodes {
+        let right = match node {
+            MathNode::Glyph { x, width, .. } => *x + *width,
+            MathNode::Rule { x, width, .. } => *x + *width,
+            MathNode::SvgPath { x, width, .. } => *x + *width,
+        };
+        max_x = max_x.max(right);
+    }
+    if max_x == f64::MIN { 0.0 } else { max_x }
+}
+
+fn compute_baseline_shift(children: &[NodeLayout]) -> f64 {
+    for child in children {
+        if let NodeLayout::Leaf { glyphs, .. } = child {
+            for g in glyphs {
+                if let MathNode::Glyph { y, .. } = g {
+                    return *y;
+                }
+            }
+        }
+    }
+    0.0
+}
+
+fn compute_font_scale(children: &[NodeLayout]) -> f64 {
+    for child in children {
+        if let NodeLayout::Leaf { glyphs, .. } = child {
+            for g in glyphs {
+                if let MathNode::Glyph { scale, .. } = g {
+                    return *scale;
+                }
+            }
+        }
+    }
+    1.0
+}
 
 /// Compute (width, height, depth) from a set of positioned MathNodes.
 /// height = max ascent above baseline, depth = max descent below.
@@ -374,10 +723,9 @@ fn compute_glyph_extents(nodes: &[MathNode]) -> (f64, f64, f64) {
 
     for node in nodes {
         match node {
-            MathNode::Glyph { x, y, scale, .. } => {
-                let glyph_width = 0.5 * scale; // approximate
+            MathNode::Glyph { x, y, scale, width, .. } => {
                 min_x = min_x.min(*x);
-                max_x = max_x.max(*x + glyph_width);
+                max_x = max_x.max(*x + *width);
                 // y is baseline-relative (positive = above baseline)
                 max_height = max_height.max(*y + *scale);
                 max_depth = max_depth.max(-*y);
@@ -534,6 +882,728 @@ mod tests {
         }
     }
 
+    /// Verify that glyph positions within each block are monotonically increasing (left-to-right).
+    /// This catches tagging mismatches where katex-rs assigns glyph positions to the wrong nodes.
+    fn assert_block_positions_monotonic(block: &BlockLayout, label: &str) {
+        let mut prev_left_x = f64::NEG_INFINITY;
+        for (i, child) in block.children.iter().enumerate() {
+            let left_x = match child {
+                NodeLayout::Leaf { left_x, .. } => *left_x,
+                NodeLayout::Command { left_x, .. } => *left_x,
+            };
+            assert!(
+                left_x >= prev_left_x,
+                "{label}: child[{i}] left_x={left_x} < prev={prev_left_x} — \
+                 glyph tagging order mismatch between arena and katex-rs"
+            );
+            prev_left_x = left_x;
+
+            // Recurse into command child blocks
+            if let NodeLayout::Command { child_blocks, .. } = child {
+                for cb in child_blocks {
+                    assert_block_positions_monotonic(cb, &format!("{label}/block_{}", cb.block_id));
+                }
+            }
+        }
+
+        // Also verify caret_positions are monotonic
+        for i in 1..block.caret_positions.len() {
+            assert!(
+                block.caret_positions[i] >= block.caret_positions[i - 1],
+                "{label}: caret_positions[{i}]={} < caret_positions[{}]={} — \
+                 caret positions not monotonically increasing",
+                block.caret_positions[i], i - 1, block.caret_positions[i - 1],
+            );
+        }
+    }
+
+    /// Verify numerator baselineShift > 0 (above) and denominator < 0 (below).
+    fn assert_frac_baseline_shifts(frac_command: &NodeLayout) {
+        match frac_command {
+            NodeLayout::Command { child_blocks, .. } => {
+                assert_eq!(child_blocks.len(), 2);
+                let numer = &child_blocks[0];
+                let denom = &child_blocks[1];
+                assert!(
+                    numer.baseline_shift > 0.0,
+                    "Numerator baseline_shift={} should be > 0 (above expression baseline)",
+                    numer.baseline_shift,
+                );
+                assert!(
+                    denom.baseline_shift < 0.0,
+                    "Denominator baseline_shift={} should be < 0 (below expression baseline)",
+                    denom.baseline_shift,
+                );
+            }
+            _ => panic!("Expected Command node"),
+        }
+    }
+
+    #[test]
+    fn test_frac_glyph_tagging() {
+        let state = import_latex(r"\frac{x+1}{2}").unwrap();
+        let ctx = katex::KatexContext::default();
+        let settings = katex::Settings::default();
+        let leaf_ids = super::super::editor_api::collect_leaf_ids(&state.arena);
+        let layout = katex::render_to_layout_tagged(&ctx, r"\frac{x+1}{2}", &settings, leaf_ids)
+            .map(MathLayout::from)
+            .unwrap();
+
+        let editor_layout = build_editor_layout(&state, &layout);
+
+        // Verify all positions are monotonically increasing
+        assert_block_positions_monotonic(&editor_layout.root, "root");
+
+        // Verify baseline shifts have correct signs
+        assert_frac_baseline_shifts(&editor_layout.root.children[0]);
+    }
+
+    #[test]
+    fn test_supsub_glyph_tagging() {
+        let state = import_latex(r"x^2_3").unwrap();
+        let ctx = katex::KatexContext::default();
+        let settings = katex::Settings::default();
+        let leaf_ids = super::super::editor_api::collect_leaf_ids(&state.arena);
+        let layout = katex::render_to_layout_tagged(&ctx, r"x^2_3", &settings, leaf_ids)
+            .map(MathLayout::from)
+            .unwrap();
+
+        let editor_layout = build_editor_layout(&state, &layout);
+        assert_block_positions_monotonic(&editor_layout.root, "root");
+    }
+
+    #[test]
+    fn test_multi_symbol_tagging() {
+        // Test that "ab" gets correct per-node glyph tagging
+        let state = import_latex("ab").unwrap();
+        let ctx = katex::KatexContext::default();
+        let settings = katex::Settings::default();
+        let leaf_ids = super::super::editor_api::collect_leaf_ids(&state.arena);
+        eprintln!("leaf_ids for 'ab': {:?}", leaf_ids);
+
+        let layout = katex::render_to_layout_tagged(&ctx, "ab", &settings, leaf_ids)
+            .map(MathLayout::from)
+            .unwrap();
+
+        // Print all nodes with their tags and positions
+        for (i, node) in layout.nodes.iter().enumerate() {
+            match node {
+                MathNode::Glyph { codepoint, x, y, node_id, scale, .. } => {
+                    let ch = char::from_u32(*codepoint).unwrap_or('?');
+                    eprintln!("  node[{i}]: Glyph '{ch}' (0x{codepoint:X}) x={x} y={y} scale={scale} tag={node_id:?}");
+                }
+                MathNode::Rule { x, y, width, height, node_id, .. } => {
+                    eprintln!("  node[{i}]: Rule x={x} y={y} w={width} h={height} tag={node_id:?}");
+                }
+                MathNode::SvgPath { x, y, node_id, .. } => {
+                    eprintln!("  node[{i}]: SvgPath x={x} y={y} tag={node_id:?}");
+                }
+            }
+        }
+
+        let editor_layout = build_editor_layout(&state, &layout);
+
+        eprintln!("Root children:");
+        for (i, child) in editor_layout.root.children.iter().enumerate() {
+            match child {
+                NodeLayout::Leaf { node_id, left_x, glyphs, .. } => {
+                    eprintln!("  child[{i}]: Leaf node_id={node_id} left_x={left_x} glyphs={}", glyphs.len());
+                }
+                NodeLayout::Command { node_id, left_x, .. } => {
+                    eprintln!("  child[{i}]: Command node_id={node_id} left_x={left_x}");
+                }
+            }
+        }
+        eprintln!("caret_positions: {:?}", editor_layout.root.caret_positions);
+
+        assert_block_positions_monotonic(&editor_layout.root, "root");
+    }
+
+    #[test]
+    fn test_pm_glyph_tagging() {
+        // \pm is a multi-char symbol stored as one arena node.
+        // Verify it gets proper glyph tagging and produces correct caret positions.
+        let state = import_latex(r"a\pm b").unwrap();
+        let ctx = katex::KatexContext::default();
+        let settings = katex::Settings::default();
+        let leaf_ids = super::super::editor_api::collect_leaf_ids(&state.arena);
+        eprintln!("leaf_ids for 'a\\pm b': {:?}", leaf_ids);
+
+        // Print arena nodes
+        let mut current = state.arena.block(state.arena.root).first;
+        while let Some(nid) = current {
+            let node = state.arena.node(nid);
+            eprintln!("  arena node {:?}: {:?}", nid, node.kind);
+            current = node.right;
+        }
+
+        let latex = state.arena.to_latex();
+        eprintln!("latex roundtrip: '{}'", latex);
+
+        let layout = katex::render_to_layout_tagged(&ctx, &latex, &settings, leaf_ids)
+            .map(MathLayout::from)
+            .unwrap();
+
+        // Print all glyphs
+        for (i, node) in layout.nodes.iter().enumerate() {
+            match node {
+                MathNode::Glyph { codepoint, x, y, node_id, scale, .. } => {
+                    let ch = char::from_u32(*codepoint).unwrap_or('?');
+                    eprintln!("  glyph[{i}]: '{ch}' (0x{codepoint:X}) x={x} y={y} scale={scale} tag={node_id:?}");
+                }
+                MathNode::Rule { x, y, width, height, node_id, .. } => {
+                    eprintln!("  glyph[{i}]: Rule x={x} y={y} w={width} h={height} tag={node_id:?}");
+                }
+                MathNode::SvgPath { x, y, node_id, .. } => {
+                    eprintln!("  glyph[{i}]: SvgPath x={x} y={y} tag={node_id:?}");
+                }
+            }
+        }
+
+        let editor_layout = build_editor_layout(&state, &layout);
+
+        eprintln!("Root children: {}", editor_layout.root.children.len());
+        for (i, child) in editor_layout.root.children.iter().enumerate() {
+            match child {
+                NodeLayout::Leaf { node_id, left_x, glyphs, width, .. } => {
+                    eprintln!("  child[{i}]: Leaf node_id={node_id} left_x={left_x} width={width} glyphs={}", glyphs.len());
+                }
+                NodeLayout::Command { node_id, left_x, .. } => {
+                    eprintln!("  child[{i}]: Command node_id={node_id} left_x={left_x}");
+                }
+            }
+        }
+        eprintln!("caret_positions: {:?}", editor_layout.root.caret_positions);
+
+        // Should have 3 children: 'a', '\pm', 'b'
+        assert_eq!(editor_layout.root.children.len(), 3, "Expected 3 children: a, \\pm, b");
+
+        // Caret positions should be monotonically increasing
+        assert_block_positions_monotonic(&editor_layout.root, "root");
+
+        // All glyphs should be tagged (non-zero glyph count per leaf)
+        for (i, child) in editor_layout.root.children.iter().enumerate() {
+            if let NodeLayout::Leaf { glyphs, .. } = child {
+                assert!(!glyphs.is_empty(), "child[{i}] should have glyphs");
+            }
+        }
+    }
+
+    /// Type a character after a complex frac — the new character must get tagged.
+    #[test]
+    fn test_type_after_frac_glyph_tagging() {
+        use crate::editor::{reduce, Intent};
+
+        let mut state = import_latex(r"x=\frac{-b\pm\sqrt{b^{2}-4ac}}{2a}").unwrap();
+        // Move to end of root and type 'f'
+        state.cursor = state.arena.move_to_end();
+        reduce::reduce(&mut state, Intent::InsertSymbol('f'));
+
+        let latex = state.arena.to_latex();
+        eprintln!("latex after typing 'f': '{}'", latex);
+
+        let leaf_ids = super::super::editor_api::collect_leaf_ids(&state.arena);
+        eprintln!("leaf_ids: {:?} (count={})", leaf_ids, leaf_ids.len());
+
+        // Print arena leaf nodes with their text
+        fn print_leaves(arena: &Arena, block_id: BlockId, label: &str) {
+            let mut current = arena.block(block_id).first;
+            while let Some(nid) = current {
+                let node = arena.node(nid);
+                if node.kind.is_leaf() {
+                    eprintln!("  leaf {:?}: {:?}", nid, node.kind);
+                } else {
+                    eprintln!("  cmd {:?}: {:?}", nid, node.kind);
+                    for (i, &bid) in node.blocks.iter().enumerate() {
+                        print_leaves(arena, bid, &format!("{label}/block{i}"));
+                    }
+                }
+                current = node.right;
+            }
+        }
+        eprintln!("Arena tree:");
+        print_leaves(&state.arena, state.arena.root, "root");
+
+        // Count arena leaf nodes
+        let mut leaf_count = 0;
+        fn count_leaves(arena: &Arena, block_id: BlockId, count: &mut usize) {
+            let mut current = arena.block(block_id).first;
+            while let Some(nid) = current {
+                let node = arena.node(nid);
+                if node.kind.is_leaf() {
+                    *count += 1;
+                } else {
+                    for &bid in &node.blocks {
+                        count_leaves(arena, bid, count);
+                    }
+                }
+                current = node.right;
+            }
+        }
+        count_leaves(&state.arena, state.arena.root, &mut leaf_count);
+        eprintln!("arena leaf count: {}", leaf_count);
+
+        let ctx = katex::KatexContext::default();
+        let settings = katex::Settings::default();
+        let layout = katex::render_to_layout_tagged(&ctx, &latex, &settings, leaf_ids)
+            .map(MathLayout::from)
+            .unwrap();
+
+        // Count glyphs with tags
+        let tagged_count = layout.nodes.iter().filter(|n| match n {
+            MathNode::Glyph { node_id, .. } => node_id.is_some(),
+            _ => false,
+        }).count();
+        eprintln!("tagged glyph count: {}", tagged_count);
+
+        // Print the last few glyphs
+        for (i, node) in layout.nodes.iter().enumerate() {
+            if let MathNode::Glyph { codepoint, x, node_id, .. } = node {
+                let ch = char::from_u32(*codepoint).unwrap_or('?');
+                eprintln!("  glyph[{i}]: '{ch}' x={x:.4} tag={node_id:?}");
+            }
+        }
+
+        let editor_layout = build_editor_layout(&state, &layout);
+        let root = &editor_layout.root;
+        eprintln!("\nRoot children: {}", root.children.len());
+        eprintln!("caret_positions: {:?}", root.caret_positions);
+
+        // The last child should be the 'f' leaf with glyphs
+        let last = root.children.last().unwrap();
+        if let NodeLayout::Leaf { node_id, glyphs, left_x, .. } = last {
+            eprintln!("Last child: Leaf id={node_id} left_x={left_x} glyphs={}", glyphs.len());
+            assert!(!glyphs.is_empty(), "'f' leaf should have glyphs");
+        }
+
+        // Last caret position should be > 0
+        let last_caret = root.caret_positions.last().unwrap();
+        assert!(*last_caret > 0.0, "Last caret position should be > 0, got {}", last_caret);
+    }
+
+    /// Test: space key triggers EscapeRight (exits current block).
+    #[test]
+    fn test_space_escapes_block() {
+        use crate::editor::{reduce, Intent};
+
+        // Create frac, navigate into numerator
+        let mut state = import_latex(r"\frac{ab}{cd}").unwrap();
+        // Move right from start: enters frac numerator
+        state.cursor = state.arena.move_to_start();
+        reduce::reduce(&mut state, Intent::MoveRight); // enter numer, before 'a'
+        reduce::reduce(&mut state, Intent::MoveRight); // past 'a'
+        reduce::reduce(&mut state, Intent::MoveRight); // past 'b', at end of numer
+
+        let numer_block = state.cursor.parent;
+        eprintln!("Before escape: parent={:?}", numer_block);
+
+        // Space = EscapeRight: should exit numer → enter denom
+        reduce::reduce(&mut state, Intent::EscapeRight);
+        let denom_block = state.cursor.parent;
+        eprintln!("After escape: parent={:?}", denom_block);
+
+        assert_ne!(numer_block, denom_block, "Should have moved to a different block");
+
+        // Another EscapeRight from start of denom: should exit frac entirely
+        reduce::reduce(&mut state, Intent::EscapeRight);
+        let root_block = state.cursor.parent;
+        assert_eq!(root_block, state.arena.root, "Should be back in root block");
+
+        // EscapeRight in root: should behave like MoveRight (no-op at end)
+        let before = state.cursor.clone();
+        reduce::reduce(&mut state, Intent::EscapeRight);
+        // At end of root, should stay put
+        assert_eq!(state.cursor.parent, before.parent);
+    }
+
+    /// Stress test: type 100 characters into root after frac, and also inside sqrt.
+    /// Reproduces the "cursor overflow to 0" on very fast typing.
+    #[test]
+    fn test_stress_type_many_chars_after_frac() {
+        use crate::editor::{reduce, Intent};
+
+        let mut state = import_latex(r"x=\frac{-b\pm\sqrt{b^{2}-4ac}}{2a}").unwrap();
+        state.cursor = state.arena.move_to_end();
+
+        let chars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJ";
+        for (i, ch) in chars.chars().enumerate() {
+            reduce::reduce(&mut state, Intent::InsertSymbol(ch));
+            let snap = super::super::editor_api::build_snapshot(&state, false);
+            let root = &snap.editor_layout.root;
+            let carets = &root.caret_positions;
+
+            // Cursor index must exist
+            assert!(root.cursor_index.is_some(), "char {i} '{ch}': no cursor_index");
+            let idx = root.cursor_index.unwrap() as usize;
+
+            // Caret at cursor must be > 0 after first char
+            if i > 0 {
+                assert!(carets[idx] > 0.0,
+                    "char {i} '{ch}': cursor caret={} should be > 0. carets_len={}",
+                    carets[idx], carets.len());
+            }
+
+            // All carets must be monotonic
+            for j in 1..carets.len() {
+                assert!(carets[j] > carets[j - 1],
+                    "char {i} '{ch}': carets[{j}]={} <= carets[{}]={}",
+                    carets[j], j - 1, carets[j - 1]);
+            }
+        }
+    }
+
+    /// Stress test: type many chars inside the sqrt body (inside frac numerator).
+    #[test]
+    fn test_stress_type_inside_sqrt() {
+        use crate::editor::{reduce, Intent};
+
+        let mut state = import_latex(r"x=\frac{-b\pm\sqrt{b^{2}-4ac}}{2a}").unwrap();
+        // Navigate into sqrt body: end → left (enter denom) → ...
+        // Easier: go to end of sqrt body by navigating
+        state.cursor = state.arena.move_to_end();
+        // Move left to enter the frac from right, then navigate into sqrt
+        reduce::reduce(&mut state, Intent::MoveLeft);  // into denom
+        reduce::reduce(&mut state, Intent::MoveLeft);  // before 'a' in denom
+        reduce::reduce(&mut state, Intent::MoveLeft);  // before '2' in denom
+        reduce::reduce(&mut state, Intent::MoveUp);    // into numerator (at end)
+        // Now at end of numerator, after 'c' in '-4ac' after sqrt
+        // Move left past 'c', 'a', '4', '-' to get inside sqrt
+        reduce::reduce(&mut state, Intent::MoveLeft); // before c
+        reduce::reduce(&mut state, Intent::MoveLeft); // before a
+        reduce::reduce(&mut state, Intent::MoveLeft); // before 4
+        reduce::reduce(&mut state, Intent::MoveLeft); // before -
+        reduce::reduce(&mut state, Intent::MoveLeft); // into sqrt (at end of sqrt body)
+
+        let chars = "duhwuhdwdwfuhweifuhwefiweuhfiweuhfoweauhfoweathfuweaiofhu";
+        for (i, ch) in chars.chars().enumerate() {
+            reduce::reduce(&mut state, Intent::InsertSymbol(ch));
+            let snap = super::super::editor_api::build_snapshot(&state, false);
+
+            // Find the block with cursor
+            fn find_cursor(b: &BlockLayout) -> Option<&BlockLayout> {
+                if b.cursor_index.is_some() { return Some(b); }
+                for child in &b.children {
+                    if let NodeLayout::Command { child_blocks, .. } = child {
+                        for cb in child_blocks {
+                            if let Some(found) = find_cursor(cb) { return Some(found); }
+                        }
+                    }
+                }
+                None
+            }
+
+            let cb = find_cursor(&snap.editor_layout.root)
+                .expect(&format!("char {i} '{ch}': no cursor block"));
+            let carets = &cb.caret_positions;
+            let idx = cb.cursor_index.unwrap() as usize;
+
+            if i > 0 {
+                assert!(carets[idx] > 0.0,
+                    "char {i} '{ch}': cursor caret={} should be > 0",
+                    carets[idx]);
+            }
+
+            for j in 1..carets.len() {
+                assert!(carets[j] > carets[j - 1],
+                    "char {i} '{ch}': carets[{j}]={} <= carets[{}]={}",
+                    carets[j], j - 1, carets[j - 1]);
+            }
+        }
+    }
+
+    /// Debug: print the full layout tree for the quadratic formula numerator.
+    /// The cursor after \pm must be between ± and √, not overlapping either.
+    #[test]
+    fn test_quadratic_formula_cursor_after_pm() {
+        let mut state = import_latex(r"-b\pm\sqrt{b^{2}-4ac}").unwrap();
+        let latex = state.arena.to_latex();
+        eprintln!("latex: '{}'", latex);
+
+        // Print arena nodes in order
+        eprintln!("Arena nodes:");
+        let mut current = state.arena.block(state.arena.root).first;
+        let mut node_list = Vec::new();
+        while let Some(nid) = current {
+            let node = state.arena.node(nid);
+            eprintln!("  {:?}: {:?} (leaf={})", nid, node.kind, node.kind.is_leaf());
+            node_list.push(nid);
+            current = node.right;
+        }
+
+        // Place cursor right after \pm (which is node_list[2], the 3rd node: -, b, \pm)
+        // cursor.left = \pm node, cursor.right = \sqrt node
+        let pm_node = node_list[2]; // \pm
+        let sqrt_node = node_list[3]; // \sqrt
+        state.cursor = Cursor {
+            parent: state.arena.root,
+            left: Some(pm_node),
+            right: Some(sqrt_node),
+        };
+
+        let leaf_ids = super::super::editor_api::collect_leaf_ids(&state.arena);
+        let ctx = katex::KatexContext::default();
+        let settings = katex::Settings::default();
+        let layout = katex::render_to_layout_tagged(&ctx, &latex, &settings, leaf_ids)
+            .map(MathLayout::from)
+            .unwrap();
+
+        // Print ALL glyphs with positions
+        eprintln!("\nAll glyphs:");
+        for (i, node) in layout.nodes.iter().enumerate() {
+            match node {
+                MathNode::Glyph { codepoint, x, y, scale, node_id, .. } => {
+                    let ch = char::from_u32(*codepoint).unwrap_or('?');
+                    eprintln!("  [{i}] Glyph '{ch}' x={x:.4} y={y:.4} scale={scale:.4} tag={node_id:?}");
+                }
+                MathNode::Rule { x, y, width, height, node_id, .. } => {
+                    eprintln!("  [{i}] Rule x={x:.4} y={y:.4} w={width:.4} h={height:.4} tag={node_id:?}");
+                }
+                MathNode::SvgPath { x, y, width, height, node_id, .. } => {
+                    eprintln!("  [{i}] SvgPath x={x:.4} y={y:.4} w={width:.4} h={height:.4} tag={node_id:?}");
+                }
+            }
+        }
+
+        let editor_layout = build_editor_layout(&state, &layout);
+
+        eprintln!("\nRoot block (id={}):", editor_layout.root.block_id);
+        eprintln!("  caret_positions: {:?}", editor_layout.root.caret_positions);
+        eprintln!("  cursor_index: {:?}", editor_layout.root.cursor_index);
+        eprintln!("  left_x: {}", editor_layout.root.left_x);
+
+        for (i, child) in editor_layout.root.children.iter().enumerate() {
+            match child {
+                NodeLayout::Leaf { node_id, left_x, width, glyphs, .. } => {
+                    eprintln!("  child[{i}]: Leaf id={node_id} left_x={left_x:.4} width={width:.4} glyphs={}", glyphs.len());
+                }
+                NodeLayout::Command { node_id, kind, left_x, width, child_blocks, decorations, .. } => {
+                    eprintln!("  child[{i}]: Command id={node_id} kind={kind:?} left_x={left_x:.4} width={width:.4} decos={} blocks={}", decorations.len(), child_blocks.len());
+                }
+            }
+        }
+
+        // cursor_index should be 3 (after -, b, \pm)
+        assert_eq!(editor_layout.root.cursor_index, Some(3),
+            "Cursor should be at gap 3 (after \\pm, before \\sqrt)");
+
+        let carets = &editor_layout.root.caret_positions;
+
+        // caret[3] should be the cursor position after \pm
+        // It should equal left_x of the \sqrt command (child[3])
+        let sqrt_left_x = match &editor_layout.root.children[3] {
+            NodeLayout::Command { left_x, .. } => *left_x,
+            _ => panic!("Expected Command for sqrt"),
+        };
+
+        // The ± glyph's right edge should be LESS than caret[3]
+        let pm_glyphs = match &editor_layout.root.children[2] {
+            NodeLayout::Leaf { glyphs, .. } => glyphs,
+            _ => panic!("Expected Leaf for \\pm"),
+        };
+        let pm_glyph_x = match &pm_glyphs[0] {
+            MathNode::Glyph { x, .. } => *x,
+            _ => panic!("Expected Glyph"),
+        };
+
+        eprintln!("\n± glyph x: {:.4}", pm_glyph_x);
+        eprintln!("caret[3] (cursor after ±): {:.4}", carets[3]);
+        eprintln!("sqrt left_x: {:.4}", sqrt_left_x);
+        eprintln!("caret[3] == sqrt_left_x? {}", (carets[3] - sqrt_left_x).abs() < 0.001);
+
+        // The cursor position should be AFTER the ± symbol, not on top of it
+        assert!(carets[3] > pm_glyph_x + 0.3,
+            "Cursor after ± ({:.4}) should be well past the ± glyph ({:.4})",
+            carets[3], pm_glyph_x);
+    }
+
+    /// Regression: inserting \frac via command input in the middle of an expression
+    /// must not corrupt the layout or misalign glyph tagging.
+    #[test]
+    fn test_command_input_frac_in_middle_snapshot() {
+        use crate::editor::{reduce, Intent};
+
+        let mut state = import_latex("x+y").unwrap();
+        state.cursor = state.arena.move_to_start();
+        reduce::reduce(&mut state, Intent::MoveRight); // past x
+        reduce::reduce(&mut state, Intent::MoveRight); // past +
+        // Cursor between + and y
+
+        // Insert \frac via command input
+        reduce::reduce(&mut state, Intent::InsertCommandInput);
+        reduce::reduce(&mut state, Intent::CommandInputType('f'));
+        reduce::reduce(&mut state, Intent::CommandInputType('r'));
+        reduce::reduce(&mut state, Intent::CommandInputType('a'));
+        reduce::reduce(&mut state, Intent::CommandInputType('c'));
+
+        // While in command input mode, build_snapshot should work
+        let snap_during = super::super::editor_api::build_snapshot(&state, false);
+        assert_eq!(snap_during.latex, "x+y"); // export excludes LCI
+        assert!(snap_during.in_command_input);
+        // Layout should have the LCI as a Command node
+        let lci_found = snap_during.editor_layout.root.children.iter().any(|c| {
+            matches!(c, NodeLayout::Command { kind: CommandLayoutKind::LatexCommandInput { .. }, .. })
+        });
+        assert!(lci_found, "Layout should contain a LatexCommandInput command node");
+
+        // Resolve
+        reduce::reduce(&mut state, Intent::ResolveCurrentCommandInput);
+
+        let snap_after = super::super::editor_api::build_snapshot(&state, false);
+        assert_eq!(snap_after.latex, "x+\\frac{}{}y");
+        assert!(!snap_after.in_command_input);
+        assert_block_positions_monotonic(&snap_after.editor_layout.root, "root");
+    }
+
+    /// Regression: command input inside a nested structure (frac numerator).
+    #[test]
+    fn test_command_input_inside_quadratic_formula() {
+        use crate::editor::{reduce, Intent};
+
+        let mut state = import_latex(r"x=\frac{-b\pm\sqrt{b^{2}-4ac}}{2a}").unwrap();
+        // Navigate to end of numerator (after the sqrt)
+        state.cursor = state.arena.move_to_start();
+        reduce::reduce(&mut state, Intent::MoveRight); // past x
+        reduce::reduce(&mut state, Intent::MoveRight); // past =
+        reduce::reduce(&mut state, Intent::MoveRight); // enter frac numer
+
+        // Insert \alpha at start of numerator
+        reduce::reduce(&mut state, Intent::InsertCommandInput);
+        reduce::reduce(&mut state, Intent::CommandInputType('a'));
+        reduce::reduce(&mut state, Intent::CommandInputType('l'));
+        reduce::reduce(&mut state, Intent::CommandInputType('p'));
+        reduce::reduce(&mut state, Intent::CommandInputType('h'));
+        reduce::reduce(&mut state, Intent::CommandInputType('a'));
+        reduce::reduce(&mut state, Intent::ResolveCurrentCommandInput);
+
+        let snap = super::super::editor_api::build_snapshot(&state, false);
+        // The alpha should be at start of numerator
+        assert!(snap.latex.contains("\\frac{\\alpha"));
+        assert_block_positions_monotonic(&snap.editor_layout.root, "root");
+    }
+
+    /// Empty \frac{}{} should produce a visible layout with fraction bar,
+    /// non-zero command dimensions, and is_empty child blocks.
+    #[test]
+    fn test_empty_frac_layout() {
+        let state = import_latex(r"\frac{}{}").unwrap();
+        let render_latex = state.arena.to_render_latex();
+        // Render latex should contain \kern for empty blocks
+        assert!(render_latex.contains(r"\kern{0.5em}"),
+            "render_latex should contain \\kern for empty blocks, got: {render_latex}");
+
+        let ctx = katex::KatexContext::default();
+        let settings = katex::Settings::default();
+        let leaf_ids = super::super::editor_api::collect_leaf_ids(&state.arena);
+        let layout = katex::render_to_layout_tagged(&ctx, &render_latex, &settings, leaf_ids)
+            .map(MathLayout::from)
+            .unwrap();
+
+        let editor_layout = build_editor_layout(&state, &layout);
+        assert_eq!(editor_layout.root.children.len(), 1);
+
+        match &editor_layout.root.children[0] {
+            NodeLayout::Command { width, height, child_blocks, .. } => {
+                assert!(*width > 0.0, "empty frac should have non-zero width, got {width}");
+                assert!(*height > 0.0, "empty frac should have non-zero height, got {height}");
+                assert_eq!(child_blocks.len(), 2);
+                assert!(child_blocks[0].is_empty, "numerator should be empty");
+                assert!(child_blocks[1].is_empty, "denominator should be empty");
+            }
+            _ => panic!("Expected Command node for frac"),
+        }
+
+        // Fraction bar should be in untagged
+        assert!(!editor_layout.untagged.is_empty(),
+            "fraction bar should be in untagged decorations");
+    }
+
+    /// Empty \sqrt{} should produce a visible layout with radical sign.
+    #[test]
+    fn test_empty_sqrt_layout() {
+        let state = import_latex(r"\sqrt{}").unwrap();
+        let render_latex = state.arena.to_render_latex();
+        assert!(render_latex.contains(r"\kern{0.5em}"));
+
+        let snap = super::super::editor_api::build_snapshot(&state, false);
+        assert_eq!(snap.editor_layout.root.children.len(), 1);
+        match &snap.editor_layout.root.children[0] {
+            NodeLayout::Command { width, height, child_blocks, .. } => {
+                assert!(*width > 0.0, "empty sqrt should have non-zero width");
+                assert!(*height > 0.0, "empty sqrt should have non-zero height");
+                assert_eq!(child_blocks.len(), 1);
+                assert!(child_blocks[0].is_empty);
+            }
+            _ => panic!("Expected Command node for sqrt"),
+        }
+    }
+
+    /// Regression: cursor in empty denominator of \frac{2}{} must be inside the
+    /// fraction, not at x=0.  The empty child block's left_x must inherit from
+    /// the command's computed left_x so Flutter positions it correctly.
+    #[test]
+    fn test_cursor_in_partially_empty_frac() {
+        use crate::editor::{reduce, Intent};
+
+        // Build: \frac{x+1}{2}+\frac{2}{}  with cursor in empty denom of second frac
+        let mut state = import_latex(r"\frac{x+1}{2}+\frac{2}{}").unwrap();
+
+        // Navigate into the empty denominator of the second frac.
+        // Start at end of root, move left to enter second frac → denom
+        state.cursor = state.arena.move_to_end();
+        reduce::reduce(&mut state, Intent::MoveLeft); // into denom of second frac (empty)
+
+        let snap = super::super::editor_api::build_snapshot(&state, false);
+        let root = &snap.editor_layout.root;
+
+        // Find the second frac command (child index 4: x,+,1 are wrong — let's just
+        // iterate to find the frac with an empty child block)
+        fn find_cursor_block<'a>(block: &'a BlockLayout) -> Option<&'a BlockLayout> {
+            if block.cursor_index.is_some() {
+                return Some(block);
+            }
+            for child in &block.children {
+                if let NodeLayout::Command { child_blocks, .. } = child {
+                    for cb in child_blocks {
+                        if let Some(found) = find_cursor_block(cb) {
+                            return Some(found);
+                        }
+                    }
+                }
+            }
+            None
+        }
+
+        let cb = find_cursor_block(root).expect("Cursor should be in a block");
+
+        assert!(cb.is_empty, "Cursor block should be the empty denominator");
+        assert_eq!(cb.cursor_index, Some(0), "Cursor should be at gap 0 in empty block");
+
+        // CRITICAL: The empty block's left_x must NOT be 0.
+        // It should be near the second frac's x-position (> 0).
+        let second_frac_left_x = root.children.iter().filter_map(|c| {
+            if let NodeLayout::Command { child_blocks, left_x, .. } = c {
+                if child_blocks.iter().any(|b| b.is_empty) {
+                    return Some(*left_x);
+                }
+            }
+            None
+        }).next().expect("Should find frac with empty child");
+
+        assert!(second_frac_left_x > 0.0,
+            "Second frac left_x should be > 0, got {second_frac_left_x}");
+
+        // The empty block's left_x should be near the command's left_x
+        assert!(cb.left_x >= second_frac_left_x,
+            "Empty denom left_x ({}) should be >= frac left_x ({})",
+            cb.left_x, second_frac_left_x);
+
+        // Caret positions should be [0.0] (relative to block origin)
+        assert_eq!(cb.caret_positions.len(), 1);
+
+        // Verify the whole layout is consistent
+        assert_block_positions_monotonic(root, "root");
+    }
+
     #[test]
     fn test_empty_editor_layout() {
         let state = State::new();
@@ -547,5 +1617,234 @@ mod tests {
         let editor_layout = build_editor_layout(&state, &layout);
         assert_eq!(editor_layout.root.children.len(), 0);
         assert_eq!(editor_layout.root.cursor_index, Some(0));
+    }
+
+    /// Empty fraction child blocks must have caret_positions at the center
+    /// of the fraction bar area, not at 0.0.
+    #[test]
+    fn test_empty_frac_caret_centered() {
+        use crate::editor::{reduce, Intent};
+
+        let mut state = import_latex("").unwrap();
+        reduce::reduce(&mut state, Intent::InsertCommand(crate::editor::intent::CommandKind::Frac));
+
+        let snap = super::super::editor_api::build_snapshot(&state, false);
+        let root = &snap.editor_layout.root;
+
+        // Root has one command child (frac)
+        assert_eq!(root.children.len(), 1);
+        let frac = &root.children[0];
+        match frac {
+            NodeLayout::Command { child_blocks, width, .. } => {
+                assert_eq!(child_blocks.len(), 2);
+                let numer = &child_blocks[0];
+                let denom = &child_blocks[1];
+
+                // Both child blocks are empty
+                assert!(numer.is_empty, "numerator should be empty");
+                assert!(denom.is_empty, "denominator should be empty");
+
+                // Caret positions must NOT be 0.0 — they should be centered
+                assert!(
+                    numer.caret_positions[0] > 0.0,
+                    "numerator caret should be > 0, got {}",
+                    numer.caret_positions[0]
+                );
+                assert!(
+                    denom.caret_positions[0] > 0.0,
+                    "denominator caret should be > 0, got {}",
+                    denom.caret_positions[0]
+                );
+
+                // Caret should be approximately at width/2 (center of command area)
+                let expected = width / 2.0;
+                let tolerance = 0.01;
+                assert!(
+                    (numer.caret_positions[0] - expected).abs() < tolerance,
+                    "numerator caret {} should be near center {}",
+                    numer.caret_positions[0], expected
+                );
+                assert!(
+                    (denom.caret_positions[0] - expected).abs() < tolerance,
+                    "denominator caret {} should be near center {}",
+                    denom.caret_positions[0], expected
+                );
+            }
+            _ => panic!("Expected Command for frac"),
+        }
+    }
+
+    /// Partially-filled fraction: empty denominator caret should still be centered.
+    #[test]
+    fn test_partial_frac_empty_block_caret() {
+        let state = import_latex(r"\frac{x}{}").unwrap();
+        let snap = super::super::editor_api::build_snapshot(&state, false);
+        let root = &snap.editor_layout.root;
+
+        match &root.children[0] {
+            NodeLayout::Command { child_blocks, .. } => {
+                let numer = &child_blocks[0];
+                let denom = &child_blocks[1];
+
+                // Numerator has content, denominator is empty
+                assert!(!numer.is_empty, "numerator should have content");
+                assert!(denom.is_empty, "denominator should be empty");
+
+                // Empty denominator's caret should be > 0 (centered in command area)
+                assert!(
+                    denom.caret_positions[0] > 0.0,
+                    "empty denom caret should be > 0, got {}",
+                    denom.caret_positions[0]
+                );
+            }
+            _ => panic!("Expected Command for frac"),
+        }
+    }
+
+    /// Diagnostic: print caret gaps for `x+\frac{2}{3}` to verify spacing.
+    #[test]
+    fn test_caret_spacing_around_frac() {
+        let state = import_latex(r"x+\frac{2}{3}").unwrap();
+        let snap = super::super::editor_api::build_snapshot(&state, false);
+        let root = &snap.editor_layout.root;
+
+        eprintln!("Expression: x+\\frac{{2}}{{3}}");
+        eprintln!("Root children: {}", root.children.len());
+        for (i, child) in root.children.iter().enumerate() {
+            match child {
+                NodeLayout::Leaf { node_id, left_x, width, .. } => {
+                    eprintln!("  child[{i}]: Leaf id={node_id} left_x={left_x:.4} right_x={:.4}", left_x + width);
+                }
+                NodeLayout::Command { node_id, left_x, width, .. } => {
+                    eprintln!("  child[{i}]: Command id={node_id} left_x={left_x:.4} right_x={:.4}", left_x + width);
+                }
+            }
+        }
+        eprintln!("caret_positions: {:?}", root.caret_positions);
+
+        // Verify there's a gap between caret[2] (after '+') and the frac's left edge
+        // and between caret[3] (after frac) and the frac's right edge
+        assert!(root.children.len() >= 3);
+        let frac_left = match &root.children[2] {
+            NodeLayout::Command { left_x, .. } => *left_x,
+            _ => panic!("child[2] should be frac command"),
+        };
+        let plus_right = match &root.children[1] {
+            NodeLayout::Leaf { left_x, width, .. } => left_x + width,
+            _ => panic!("child[1] should be + leaf"),
+        };
+        let caret_between = root.caret_positions[2];
+        eprintln!("Gap analysis: plus_right={plus_right:.4} caret={caret_between:.4} frac_left={frac_left:.4}");
+        eprintln!("  gap before caret: {:.4}", caret_between - plus_right);
+        eprintln!("  gap after caret: {:.4}", frac_left - caret_between);
+
+        // The caret should be in the gap, not at either edge
+        assert!(caret_between > plus_right, "caret should be after plus right edge");
+        assert!(caret_between < frac_left, "caret should be before frac left edge");
+    }
+
+    /// Diagnostic: dump layout data for all 4 fraction fill states.
+    #[test]
+    fn test_frac_four_fill_states() {
+        use crate::editor::{reduce, Intent, intent::CommandKind};
+
+        fn dump_and_check(label: &str, latex: &str) -> (Vec<BlockLayout>, f64, f64) {
+            let state = if latex.is_empty() {
+                let mut s = import_latex("").unwrap();
+                reduce::reduce(&mut s, Intent::InsertCommand(CommandKind::Frac));
+                s
+            } else {
+                import_latex(latex).unwrap()
+            };
+            let snap = super::super::editor_api::build_snapshot(&state, false);
+            let root = &snap.editor_layout.root;
+
+            eprintln!("\n=== {label} (latex='{}') ===", snap.latex);
+            eprintln!("Root: carets={:?} leftX={:.4} w={:.4} h={:.4} d={:.4}",
+                root.caret_positions, root.left_x, root.width, root.height, root.depth);
+            eprintln!("Untagged glyphs: {}", snap.editor_layout.untagged.len());
+            for (i, g) in snap.editor_layout.untagged.iter().enumerate() {
+                match g {
+                    MathNode::Rule { x, y, width, height, .. } =>
+                        eprintln!("  untagged[{i}]: Rule x={x:.4} y={y:.4} w={width:.4} h={height:.4}"),
+                    MathNode::Glyph { codepoint, x, y, .. } =>
+                        eprintln!("  untagged[{i}]: Glyph '{}' x={x:.4} y={y:.4}", char::from_u32(*codepoint).unwrap_or('?')),
+                    MathNode::SvgPath { x, y, .. } =>
+                        eprintln!("  untagged[{i}]: SvgPath x={x:.4} y={y:.4}"),
+                }
+            }
+
+            let mut child_blocks = Vec::new();
+            let mut cmd_width = 0.0;
+            let mut cmd_height = 0.0;
+            for (i, child) in root.children.iter().enumerate() {
+                match child {
+                    NodeLayout::Command { node_id, left_x, width, height, depth, child_blocks: cbs, decorations, .. } => {
+                        eprintln!("  cmd[{i}]: id={node_id} leftX={left_x:.4} w={width:.4} h={height:.4} d={depth:.4} decos={}", decorations.len());
+                        cmd_width = *width;
+                        cmd_height = *height + *depth;
+                        for (j, cb) in cbs.iter().enumerate() {
+                            eprintln!("    block[{j}]: id={} empty={} leftX={:.4} w={:.4} h={:.4} d={:.4}",
+                                cb.block_id, cb.is_empty, cb.left_x, cb.width, cb.height, cb.depth);
+                            eprintln!("      carets={:?} shift={:.4} scale={:.4}",
+                                cb.caret_positions, cb.baseline_shift, cb.font_scale);
+                            child_blocks.push(cb.clone());
+                        }
+                    }
+                    _ => {}
+                }
+            }
+            (child_blocks, cmd_width, cmd_height)
+        }
+
+        // Case 1: both empty
+        let (blocks, _w, _h) = dump_and_check("BOTH_EMPTY", "");
+        assert_eq!(blocks.len(), 2);
+        assert!(blocks[0].is_empty);
+        assert!(blocks[1].is_empty);
+        // Empty blocks' carets should be centered (width/2)
+        for (i, b) in blocks.iter().enumerate() {
+            assert!(b.caret_positions[0] > 0.0,
+                "Case BOTH_EMPTY block[{i}]: caret should be > 0, got {}", b.caret_positions[0]);
+        }
+
+        // Case 2: numerator only
+        let (blocks, _, _) = dump_and_check("NUM_ONLY", r"\frac{x}{}");
+        assert!(!blocks[0].is_empty, "numerator should have content");
+        assert!(blocks[1].is_empty, "denominator should be empty");
+        assert!(blocks[0].baseline_shift > 0.0,
+            "NUM_ONLY: numer shift={} should be > 0", blocks[0].baseline_shift);
+        assert!(blocks[1].baseline_shift < 0.0,
+            "NUM_ONLY: empty denom shift={} should be < 0", blocks[1].baseline_shift);
+        assert!((blocks[1].font_scale - 0.7).abs() < 0.05,
+            "NUM_ONLY: empty denom scale={} should be ~0.7", blocks[1].font_scale);
+        assert!(blocks[1].caret_positions[0] > 0.0,
+            "NUM_ONLY: empty denom caret should be > 0");
+        // Empty denominator caret should be centered
+        assert!(blocks[1].caret_positions[0] > 0.0,
+            "NUM_ONLY: empty denom caret should be > 0, got {}", blocks[1].caret_positions[0]);
+        // Numerator should have non-zero dimensions
+        assert!(blocks[0].width > 0.0, "NUM_ONLY: numer width should be > 0");
+        assert!(blocks[0].height > 0.0, "NUM_ONLY: numer height should be > 0");
+
+        // Case 3: denominator only
+        let (blocks, _, _) = dump_and_check("DENOM_ONLY", r"\frac{}{x}");
+        assert!(blocks[0].is_empty, "numerator should be empty");
+        assert!(!blocks[1].is_empty, "denominator should have content");
+        assert!(blocks[0].baseline_shift > 0.0,
+            "DENOM_ONLY: empty numer shift={} should be > 0", blocks[0].baseline_shift);
+        assert!(blocks[1].baseline_shift < 0.0,
+            "DENOM_ONLY: denom shift={} should be < 0", blocks[1].baseline_shift);
+        assert!((blocks[0].font_scale - 0.7).abs() < 0.05,
+            "DENOM_ONLY: empty numer scale={} should be ~0.7", blocks[0].font_scale);
+        assert!(blocks[0].caret_positions[0] > 0.0,
+            "DENOM_ONLY: empty numer caret should be > 0");
+
+        // Case 4: both filled
+        let (blocks, _, _) = dump_and_check("BOTH_FILLED", r"\frac{x}{y}");
+        assert!(!blocks[0].is_empty);
+        assert!(!blocks[1].is_empty);
+        assert!(blocks[0].baseline_shift > 0.0);
+        assert!(blocks[1].baseline_shift < 0.0);
     }
 }

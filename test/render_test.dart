@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:math_view/src/render/editable_math_line.dart';
@@ -28,6 +30,7 @@ MathNode testGlyph({
     y: y,
     fontName: fontName,
     scale: scale,
+    width: 0.5 * scale,
     color: null,
     nodeId: null,
   );
@@ -50,19 +53,21 @@ MathNode testRule({
   );
 }
 
+const _fontSize = 20.0;
+const _color = Color(0xFF000000);
+
 void main() {
   group('MathLeaf', () {
     testWidgets('renders without error with single glyph', (tester) async {
       await tester.pumpWidget(testApp(
         MathLeaf(
           glyphs: [testGlyph(codepoint: 0x78)], // 'x'
-          fontSize: 20,
-          color: const Color(0xFF000000),
+          fontSize: _fontSize,
+          color: _color,
         ),
       ));
 
       expect(find.byType(MathLeaf), findsOneWidget);
-      // Should have non-zero size
       final renderBox = tester.renderObject<RenderBox>(find.byType(MathLeaf));
       expect(renderBox.size.width, greaterThan(0));
       expect(renderBox.size.height, greaterThan(0));
@@ -72,12 +77,12 @@ void main() {
       await tester.pumpWidget(testApp(
         MathLeaf(
           glyphs: [
-            testGlyph(codepoint: 0x78, x: 0),    // 'x'
-            testGlyph(codepoint: 0x2B, x: 0.5),  // '+'
-            testGlyph(codepoint: 0x31, x: 1.0),   // '1'
+            testGlyph(codepoint: 0x78, x: 0),
+            testGlyph(codepoint: 0x2B, x: 0.5),
+            testGlyph(codepoint: 0x31, x: 1.0),
           ],
-          fontSize: 20,
-          color: const Color(0xFF000000),
+          fontSize: _fontSize,
+          color: _color,
         ),
       ));
 
@@ -88,8 +93,8 @@ void main() {
       await tester.pumpWidget(testApp(
         const MathLeaf(
           glyphs: [],
-          fontSize: 20,
-          color: Color(0xFF000000),
+          fontSize: _fontSize,
+          color: _color,
         ),
       ));
 
@@ -100,8 +105,8 @@ void main() {
       await tester.pumpWidget(testApp(
         MathLeaf(
           glyphs: [testGlyph(codepoint: 0x78)],
-          fontSize: 20,
-          color: const Color(0xFF000000),
+          fontSize: _fontSize,
+          color: _color,
         ),
       ));
 
@@ -113,19 +118,26 @@ void main() {
   });
 
   group('MathLine', () {
-    testWidgets('lays out children horizontally', (tester) async {
+    testWidgets('lays out children at absolute positions', (tester) async {
       await tester.pumpWidget(testApp(
         MathLine(
+          fontSize: _fontSize,
           children: [
-            MathLeaf(
-              glyphs: [testGlyph(codepoint: 0x78)],
-              fontSize: 20,
-              color: const Color(0xFF000000),
+            AbsolutePosition(
+              xEm: 0,
+              child: MathLeaf(
+                glyphs: [testGlyph(codepoint: 0x78, x: 0)],
+                fontSize: _fontSize,
+                color: _color,
+              ),
             ),
-            MathLeaf(
-              glyphs: [testGlyph(codepoint: 0x79)],
-              fontSize: 20,
-              color: const Color(0xFF000000),
+            AbsolutePosition(
+              xEm: 0.6,
+              child: MathLeaf(
+                glyphs: [testGlyph(codepoint: 0x79, x: 0.6)],
+                fontSize: _fontSize,
+                color: _color,
+              ),
             ),
           ],
         ),
@@ -136,17 +148,18 @@ void main() {
 
       final lineRender =
           tester.renderObject<RenderMathLine>(find.byType(MathLine));
-      // Width should be sum of children
       expect(lineRender.size.width, greaterThan(0));
-      // Should have 3 caret offsets (before first, between, after last)
+      // Should have 3 caret offsets (before first, before second, after last)
       expect(lineRender.caretOffsets.length, equals(3));
       expect(lineRender.caretOffsets[0], equals(0));
-      expect(lineRender.caretOffsets[2], equals(lineRender.size.width));
+      // Last caret should equal total width
+      expect(lineRender.caretOffsets[2],
+          closeTo(lineRender.size.width, 0.01));
     });
 
     testWidgets('handles empty children list', (tester) async {
       await tester.pumpWidget(testApp(
-        const MathLine(children: []),
+        const MathLine(fontSize: _fontSize, children: []),
       ));
 
       final lineRender =
@@ -157,21 +170,31 @@ void main() {
     testWidgets('caret offsets are monotonically increasing', (tester) async {
       await tester.pumpWidget(testApp(
         MathLine(
+          fontSize: _fontSize,
           children: [
-            MathLeaf(
-              glyphs: [testGlyph(codepoint: 0x61)], // a
-              fontSize: 20,
-              color: const Color(0xFF000000),
+            AbsolutePosition(
+              xEm: 0,
+              child: MathLeaf(
+                glyphs: [testGlyph(codepoint: 0x61, x: 0)], // a
+                fontSize: _fontSize,
+                color: _color,
+              ),
             ),
-            MathLeaf(
-              glyphs: [testGlyph(codepoint: 0x62)], // b
-              fontSize: 20,
-              color: const Color(0xFF000000),
+            AbsolutePosition(
+              xEm: 0.5,
+              child: MathLeaf(
+                glyphs: [testGlyph(codepoint: 0x62, x: 0.5)], // b
+                fontSize: _fontSize,
+                color: _color,
+              ),
             ),
-            MathLeaf(
-              glyphs: [testGlyph(codepoint: 0x63)], // c
-              fontSize: 20,
-              color: const Color(0xFF000000),
+            AbsolutePosition(
+              xEm: 1.0,
+              child: MathLeaf(
+                glyphs: [testGlyph(codepoint: 0x63, x: 1.0)], // c
+                fontSize: _fontSize,
+                color: _color,
+              ),
             ),
           ],
         ),
@@ -192,20 +215,28 @@ void main() {
       await tester.pumpWidget(testApp(
         EditableMathLine(
           blockId: 0,
+          fontSize: _fontSize,
+          caretPositions: Float64List.fromList([0.0, 0.5, 1.0]),
           cursorIndex: 1,
           cursorColor: const Color(0xFF0066FF),
           cursorOpacity: 1.0,
           selectionColor: const Color(0x4D0066FF),
           children: [
-            MathLeaf(
-              glyphs: [testGlyph(codepoint: 0x78)],
-              fontSize: 20,
-              color: const Color(0xFF000000),
+            AbsolutePosition(
+              xEm: 0,
+              child: MathLeaf(
+                glyphs: [testGlyph(codepoint: 0x78, x: 0)],
+                fontSize: _fontSize,
+                color: _color,
+              ),
             ),
-            MathLeaf(
-              glyphs: [testGlyph(codepoint: 0x79)],
-              fontSize: 20,
-              color: const Color(0xFF000000),
+            AbsolutePosition(
+              xEm: 0.5,
+              child: MathLeaf(
+                glyphs: [testGlyph(codepoint: 0x79, x: 0.5)],
+                fontSize: _fontSize,
+                color: _color,
+              ),
             ),
           ],
         ),
@@ -222,21 +253,29 @@ void main() {
       await tester.pumpWidget(testApp(
         EditableMathLine(
           blockId: 0,
+          fontSize: _fontSize,
+          caretPositions: Float64List.fromList([0.0, 0.5, 1.0]),
           selectionStart: 0,
           selectionEnd: 2,
           cursorColor: const Color(0xFF0066FF),
           cursorOpacity: 0.0,
           selectionColor: const Color(0x4D0066FF),
           children: [
-            MathLeaf(
-              glyphs: [testGlyph(codepoint: 0x78)],
-              fontSize: 20,
-              color: const Color(0xFF000000),
+            AbsolutePosition(
+              xEm: 0,
+              child: MathLeaf(
+                glyphs: [testGlyph(codepoint: 0x78, x: 0)],
+                fontSize: _fontSize,
+                color: _color,
+              ),
             ),
-            MathLeaf(
-              glyphs: [testGlyph(codepoint: 0x79)],
-              fontSize: 20,
-              color: const Color(0xFF000000),
+            AbsolutePosition(
+              xEm: 0.5,
+              child: MathLeaf(
+                glyphs: [testGlyph(codepoint: 0x79, x: 0.5)],
+                fontSize: _fontSize,
+                color: _color,
+              ),
             ),
           ],
         ),
@@ -249,14 +288,19 @@ void main() {
       await tester.pumpWidget(testApp(
         EditableMathLine(
           blockId: 0,
+          fontSize: _fontSize,
+          caretPositions: Float64List.fromList([0.0, 0.5]),
           cursorColor: const Color(0xFF0066FF),
           cursorOpacity: 0.0,
           selectionColor: const Color(0x4D0066FF),
           children: [
-            MathLeaf(
-              glyphs: [testGlyph(codepoint: 0x78)],
-              fontSize: 20,
-              color: const Color(0xFF000000),
+            AbsolutePosition(
+              xEm: 0,
+              child: MathLeaf(
+                glyphs: [testGlyph(codepoint: 0x78, x: 0)],
+                fontSize: _fontSize,
+                color: _color,
+              ),
             ),
           ],
         ),
@@ -272,19 +316,27 @@ void main() {
       await tester.pumpWidget(testApp(
         EditableMathLine(
           blockId: 0,
+          fontSize: _fontSize,
+          caretPositions: Float64List.fromList([0.0, 0.5, 1.0]),
           cursorColor: const Color(0xFF0066FF),
           cursorOpacity: 0.0,
           selectionColor: const Color(0x4D0066FF),
           children: [
-            MathLeaf(
-              glyphs: [testGlyph(codepoint: 0x78)],
-              fontSize: 20,
-              color: const Color(0xFF000000),
+            AbsolutePosition(
+              xEm: 0,
+              child: MathLeaf(
+                glyphs: [testGlyph(codepoint: 0x78, x: 0)],
+                fontSize: _fontSize,
+                color: _color,
+              ),
             ),
-            MathLeaf(
-              glyphs: [testGlyph(codepoint: 0x79)],
-              fontSize: 20,
-              color: const Color(0xFF000000),
+            AbsolutePosition(
+              xEm: 0.5,
+              child: MathLeaf(
+                glyphs: [testGlyph(codepoint: 0x79, x: 0.5)],
+                fontSize: _fontSize,
+                color: _color,
+              ),
             ),
           ],
         ),
@@ -308,38 +360,54 @@ void main() {
       await tester.pumpWidget(testApp(
         EditableMathLine(
           blockId: 0,
+          fontSize: _fontSize,
+          caretPositions: Float64List.fromList([0.0, 0.5]),
           cursorIndex: 1,
           cursorColor: const Color(0xFF0066FF),
-          cursorOpacity: 0.0, // hidden
+          cursorOpacity: 0.0,
           selectionColor: const Color(0x4D0066FF),
           children: [
-            MathLeaf(
-              glyphs: [testGlyph(codepoint: 0x78)],
-              fontSize: 20,
-              color: const Color(0xFF000000),
+            AbsolutePosition(
+              xEm: 0,
+              child: MathLeaf(
+                glyphs: [testGlyph(codepoint: 0x78, x: 0)],
+                fontSize: _fontSize,
+                color: _color,
+              ),
             ),
           ],
         ),
       ));
 
-      // Should render without error even with cursor hidden
       expect(find.byType(EditableMathLine), findsOneWidget);
     });
   });
 
   group('MathBlockWidget integration', () {
-    // These tests use hand-crafted BlockLayout data (no Rust needed)
-
-    testWidgets('renders simple leaf-only block', (tester) async {
-      // Simulate what Rust would return for "xy"
+    testWidgets('renders simple leaf-only block via widget tree',
+        (tester) async {
+      // Build widget tree manually (same structure MathBlockWidget would build)
       await tester.pumpWidget(testApp(
-        _buildMathBlockFromLeaves(
-          blockId: 0,
-          glyphs: [
-            [testGlyph(codepoint: 0x78)], // x
-            [testGlyph(codepoint: 0x79)], // y
+        MathLine(
+          fontSize: _fontSize,
+          children: [
+            AbsolutePosition(
+              xEm: 0,
+              child: MathLeaf(
+                glyphs: [testGlyph(codepoint: 0x78, x: 0)], // x
+                fontSize: _fontSize,
+                color: _color,
+              ),
+            ),
+            AbsolutePosition(
+              xEm: 0.5,
+              child: MathLeaf(
+                glyphs: [testGlyph(codepoint: 0x79, x: 0.5)], // y
+                fontSize: _fontSize,
+                color: _color,
+              ),
+            ),
           ],
-          isEditable: false,
         ),
       ));
 
@@ -347,16 +415,35 @@ void main() {
       expect(find.byType(MathLeaf), findsNWidgets(2));
     });
 
-    testWidgets('renders editable block with cursor', (tester) async {
+    testWidgets('renders editable block with cursor via widget tree',
+        (tester) async {
       await tester.pumpWidget(testApp(
-        _buildMathBlockFromLeaves(
+        EditableMathLine(
           blockId: 0,
-          glyphs: [
-            [testGlyph(codepoint: 0x78)],
-            [testGlyph(codepoint: 0x79)],
-          ],
-          isEditable: true,
+          fontSize: _fontSize,
+          caretPositions: Float64List.fromList([0.0, 0.5, 1.0]),
           cursorIndex: 1,
+          cursorColor: const Color(0xFF0066FF),
+          cursorOpacity: 1.0,
+          selectionColor: const Color(0x4D0066FF),
+          children: [
+            AbsolutePosition(
+              xEm: 0,
+              child: MathLeaf(
+                glyphs: [testGlyph(codepoint: 0x78, x: 0)],
+                fontSize: _fontSize,
+                color: _color,
+              ),
+            ),
+            AbsolutePosition(
+              xEm: 0.5,
+              child: MathLeaf(
+                glyphs: [testGlyph(codepoint: 0x79, x: 0.5)],
+                fontSize: _fontSize,
+                color: _color,
+              ),
+            ),
+          ],
         ),
       ));
 
@@ -364,78 +451,4 @@ void main() {
       expect(find.byType(MathLeaf), findsNWidgets(2));
     });
   });
-}
-
-/// Helper to build a MathBlockWidget from a list of glyph groups (one per leaf).
-Widget _buildMathBlockFromLeaves({
-  required int blockId,
-  required List<List<MathNode>> glyphs,
-  required bool isEditable,
-  int? cursorIndex,
-}) {
-  // Import here to access types
-  // ignore: depend_on_referenced_packages
-  final block = _makeBlockLayout(blockId, glyphs, cursorIndex);
-  return _MathBlockFromLayout(
-    block: block,
-    isEditable: isEditable,
-  );
-}
-
-// We can't import editor_layout.dart types directly without FRB init,
-// so we build the widget tree manually to match what MathBlockWidget would do.
-class _MathBlockFromLayout extends StatelessWidget {
-  final _SimpleBlock block;
-  final bool isEditable;
-
-  const _MathBlockFromLayout({
-    required this.block,
-    required this.isEditable,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final children = block.glyphs.map((g) => MathLeaf(
-      glyphs: g,
-      fontSize: 20,
-      color: const Color(0xFF000000),
-    )).toList();
-
-    if (isEditable) {
-      return EditableMathLine(
-        blockId: block.blockId,
-        cursorIndex: block.cursorIndex,
-        cursorColor: const Color(0xFF0066FF),
-        cursorOpacity: 1.0,
-        selectionColor: const Color(0x4D0066FF),
-        children: children,
-      );
-    }
-
-    return MathLine(children: children);
-  }
-}
-
-class _SimpleBlock {
-  final int blockId;
-  final List<List<MathNode>> glyphs;
-  final int? cursorIndex;
-
-  _SimpleBlock({
-    required this.blockId,
-    required this.glyphs,
-    this.cursorIndex,
-  });
-}
-
-_SimpleBlock _makeBlockLayout(
-  int blockId,
-  List<List<MathNode>> glyphs,
-  int? cursorIndex,
-) {
-  return _SimpleBlock(
-    blockId: blockId,
-    glyphs: glyphs,
-    cursorIndex: cursorIndex,
-  );
 }

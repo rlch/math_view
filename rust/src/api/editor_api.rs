@@ -41,6 +41,8 @@ pub struct EditorSnapshot {
     pub editor_layout: EditorLayout,
     /// Current LaTeX string.
     pub latex: String,
+    /// Whether the cursor is in command input mode (inside a LatexCommandInput node).
+    pub in_command_input: bool,
 }
 
 // ---------------------------------------------------------------------------
@@ -67,8 +69,20 @@ pub enum EditorIntent {
     InsertOverline,
     InsertUnderline,
     InsertText,
+    /// Begin command input mode: insert LatexCommandInput node.
+    InsertCommandInput,
+    /// Append a character to the active command input.
+    CommandInputType { ch: String },
+    /// Remove last character from command input, or remove it if empty.
+    CommandInputBackspace,
+    /// Resolve the active command input (extract name, insert command/symbol).
+    ResolveCommandInput,
+    /// Cancel command input mode (remove the node).
+    CancelCommandInput,
     MoveLeft,
     MoveRight,
+    /// Space key: exit current block to the right (MathQuill-style).
+    EscapeRight,
     MoveUp,
     MoveDown,
     MoveToStart,
@@ -154,18 +168,27 @@ fn empty_snapshot() -> EditorSnapshot {
                 width: 0.0,
                 height: 0.0,
                 depth: 0.0,
+                caret_positions: vec![0.0],
+                baseline_shift: 0.0,
+                font_scale: 1.0,
+                left_x: 0.0,
                 children: Vec::new(),
                 cursor_index: None,
                 selection: None,
+                is_empty: true,
             },
             untagged: Vec::new(),
         },
         latex: String::new(),
+        in_command_input: false,
     }
 }
 
-fn build_snapshot(state: &editor::State, display_mode: bool) -> EditorSnapshot {
+pub(crate) fn build_snapshot(state: &editor::State, display_mode: bool) -> EditorSnapshot {
+    // Export LaTeX excludes transient LatexCommandInput nodes
     let latex = state.arena.to_latex();
+    // Render LaTeX includes \kern placeholders for LatexCommandInput space
+    let render_latex = state.arena.to_render_latex();
 
     let ctx = katex::KatexContext::default();
     let mut settings = katex::Settings::default();
@@ -173,7 +196,7 @@ fn build_snapshot(state: &editor::State, display_mode: bool) -> EditorSnapshot {
 
     let leaf_ids = collect_leaf_ids(&state.arena);
 
-    let layout = katex::render_to_layout_tagged(&ctx, &latex, &settings, leaf_ids)
+    let layout = katex::render_to_layout_tagged(&ctx, &render_latex, &settings, leaf_ids)
         .map(MathLayout::from)
         .unwrap_or(MathLayout {
             width: 0.0,
@@ -184,9 +207,17 @@ fn build_snapshot(state: &editor::State, display_mode: bool) -> EditorSnapshot {
 
     let editor_layout = build_editor_layout(state, &layout);
 
+    let in_command_input = state.cursor.left.map_or(false, |left_id| {
+        matches!(
+            &state.arena.node(left_id).kind,
+            editor::NodeKind::LatexCommandInput { .. }
+        )
+    });
+
     EditorSnapshot {
         editor_layout,
         latex,
+        in_command_input,
     }
 }
 
@@ -202,10 +233,20 @@ fn collect_leaves_in_block(arena: &editor::Arena, block_id: editor::BlockId, ids
     let mut current = arena.block(block_id).first;
     while let Some(nid) = current {
         let node = arena.node(nid);
-        if node.kind.is_leaf() {
+        if matches!(&node.kind, editor::NodeKind::LatexCommandInput { .. }) {
+            // Skip — LatexCommandInput has no KaTeX glyphs (rendered as \kern)
+        } else if node.kind.is_leaf() {
             ids.push(nid.0);
         } else {
-            for &child_block in &node.blocks {
+            // Walk child blocks in the order katex-rs encounters them during layout.
+            // For fractions, katex-rs builds a vlist with [denom, rule, numer],
+            // so the denominator symbols are encountered before numerator symbols.
+            // Arena stores [numer=blocks[0], denom=blocks[1]], so we reverse.
+            let blocks_in_katex_order: Vec<editor::BlockId> = match &node.kind {
+                editor::node_kind::NodeKind::Frac => node.blocks.iter().rev().copied().collect(),
+                _ => node.blocks.clone(),
+            };
+            for child_block in blocks_in_katex_order {
                 collect_leaves_in_block(arena, child_block, ids);
             }
         }
@@ -234,8 +275,16 @@ fn convert_intent(intent: EditorIntent, arena: &editor::Arena) -> editor::Intent
         EditorIntent::InsertOverline => editor::Intent::InsertCommand(editor::CommandKind::Overline),
         EditorIntent::InsertUnderline => editor::Intent::InsertCommand(editor::CommandKind::Underline),
         EditorIntent::InsertText => editor::Intent::InsertCommand(editor::CommandKind::Text),
+        EditorIntent::InsertCommandInput => editor::Intent::InsertCommandInput,
+        EditorIntent::CommandInputType { ch } => {
+            editor::Intent::CommandInputType(ch.chars().next().unwrap_or(' '))
+        }
+        EditorIntent::CommandInputBackspace => editor::Intent::CommandInputBackspace,
+        EditorIntent::ResolveCommandInput => editor::Intent::ResolveCurrentCommandInput,
+        EditorIntent::CancelCommandInput => editor::Intent::CancelCommandInput,
         EditorIntent::MoveLeft => editor::Intent::MoveLeft,
         EditorIntent::MoveRight => editor::Intent::MoveRight,
+        EditorIntent::EscapeRight => editor::Intent::EscapeRight,
         EditorIntent::MoveUp => editor::Intent::MoveUp,
         EditorIntent::MoveDown => editor::Intent::MoveDown,
         EditorIntent::MoveToStart => editor::Intent::MoveToStart,

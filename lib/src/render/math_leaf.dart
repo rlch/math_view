@@ -5,9 +5,9 @@ import 'math_paint.dart';
 
 /// A leaf render widget that paints a list of [MathNode] glyphs.
 ///
-/// Unlike the legacy flat renderer, this widget sizes itself to its actual
-/// glyph content using [TextPainter] measurements (no more `0.5 * scale`
-/// approximation).
+/// Tracks its own origin (leftmost glyph x in em) and paints glyphs relative
+/// to that origin. The parent [RenderMathLine] positions this widget at the
+/// absolute offset via [AbsolutePosition].
 class MathLeaf extends LeafRenderObjectWidget {
   final List<MathNode> glyphs;
   final double fontSize;
@@ -42,6 +42,9 @@ class MathLeaf extends LeafRenderObjectWidget {
 ///
 /// Computes its own size from actual [TextPainter] measurements, and reports
 /// baseline distance for proper alignment in [RenderMathLine].
+///
+/// Paints glyphs relative to its origin (`_originXEm`) so that the parent's
+/// absolute positioning places them correctly.
 class RenderMathLeaf extends RenderBox {
   RenderMathLeaf({
     required List<MathNode> glyphs,
@@ -75,6 +78,7 @@ class RenderMathLeaf extends RenderBox {
   double _width = 0;
   double _heightAboveBaseline = 0;
   double _depthBelowBaseline = 0;
+  double _originXEm = 0;
 
   @override
   void performLayout() {
@@ -91,11 +95,12 @@ class RenderMathLeaf extends RenderBox {
       _width = 0;
       _heightAboveBaseline = 0;
       _depthBelowBaseline = 0;
+      _originXEm = 0;
       return;
     }
 
-    double minX = double.infinity;
-    double maxX = double.negativeInfinity;
+    double minXEm = double.infinity;
+    double maxX = double.negativeInfinity; // pixels
     double maxAscent = 0;
     double maxDescent = 0;
 
@@ -104,9 +109,8 @@ class RenderMathLeaf extends RenderBox {
         case MathNode_Glyph():
           final w = MathPaint.measureGlyphWidth(node, _fontSize);
           final x = node.x * _fontSize;
-          minX = minX < x ? minX : x;
+          minXEm = minXEm < node.x ? minXEm : node.x;
           maxX = maxX > (x + w) ? maxX : (x + w);
-          // y is baseline-relative in em, positive = above baseline
           final aboveBaseline = node.y * _fontSize + node.scale * _fontSize;
           final belowBaseline = -node.y * _fontSize;
           maxAscent = maxAscent > aboveBaseline ? maxAscent : aboveBaseline;
@@ -114,7 +118,7 @@ class RenderMathLeaf extends RenderBox {
         case MathNode_Rule():
           final x = node.x * _fontSize;
           final w = node.width * _fontSize;
-          minX = minX < x ? minX : x;
+          minXEm = minXEm < node.x ? minXEm : node.x;
           maxX = maxX > (x + w) ? maxX : (x + w);
           final aboveBaseline =
               node.y * _fontSize + node.height * _fontSize;
@@ -124,7 +128,7 @@ class RenderMathLeaf extends RenderBox {
         case MathNode_SvgPath():
           final x = node.x * _fontSize;
           final w = node.width * _fontSize;
-          minX = minX < x ? minX : x;
+          minXEm = minXEm < node.x ? minXEm : node.x;
           maxX = maxX > (x + w) ? maxX : (x + w);
           final aboveBaseline =
               node.y * _fontSize + node.height * _fontSize;
@@ -134,7 +138,8 @@ class RenderMathLeaf extends RenderBox {
       }
     }
 
-    _width = maxX > minX ? maxX - minX : 0;
+    _originXEm = minXEm.isFinite ? minXEm : 0;
+    _width = maxX > (_originXEm * _fontSize) ? maxX - _originXEm * _fontSize : 0;
     _heightAboveBaseline = maxAscent.clamp(0, double.infinity);
     _depthBelowBaseline = maxDescent.clamp(0, double.infinity);
   }
@@ -148,20 +153,23 @@ class RenderMathLeaf extends RenderBox {
   void paint(PaintingContext context, Offset offset) {
     final canvas = context.canvas;
     final baselineFromTop = _heightAboveBaseline;
+    // Shift offset to account for origin — glyphs paint at absolute x,
+    // but we need them relative to this widget's left edge.
+    final shifted = offset.translate(-_originXEm * _fontSize, 0);
 
     for (final node in _glyphs) {
       switch (node) {
         case MathNode_Glyph():
           MathPaint.paintGlyph(
-            canvas, offset, baselineFromTop, _fontSize, _color, node,
+            canvas, shifted, baselineFromTop, _fontSize, _color, node,
           );
         case MathNode_Rule():
           MathPaint.paintRule(
-            canvas, offset, baselineFromTop, _fontSize, _color, node,
+            canvas, shifted, baselineFromTop, _fontSize, _color, node,
           );
         case MathNode_SvgPath():
           MathPaint.paintSvgPath(
-            canvas, offset, baselineFromTop, _fontSize, _color, node,
+            canvas, shifted, baselineFromTop, _fontSize, _color, node,
           );
       }
     }

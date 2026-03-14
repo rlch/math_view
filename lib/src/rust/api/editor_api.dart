@@ -68,8 +68,31 @@ sealed class EditorIntent with _$EditorIntent {
   const factory EditorIntent.insertOverline() = EditorIntent_InsertOverline;
   const factory EditorIntent.insertUnderline() = EditorIntent_InsertUnderline;
   const factory EditorIntent.insertText() = EditorIntent_InsertText;
+
+  /// Begin command input mode: insert LatexCommandInput node.
+  const factory EditorIntent.insertCommandInput() =
+      EditorIntent_InsertCommandInput;
+
+  /// Append a character to the active command input.
+  const factory EditorIntent.commandInputType({required String ch}) =
+      EditorIntent_CommandInputType;
+
+  /// Remove last character from command input, or remove it if empty.
+  const factory EditorIntent.commandInputBackspace() =
+      EditorIntent_CommandInputBackspace;
+
+  /// Resolve the active command input (extract name, insert command/symbol).
+  const factory EditorIntent.resolveCommandInput() =
+      EditorIntent_ResolveCommandInput;
+
+  /// Cancel command input mode (remove the node).
+  const factory EditorIntent.cancelCommandInput() =
+      EditorIntent_CancelCommandInput;
   const factory EditorIntent.moveLeft() = EditorIntent_MoveLeft;
   const factory EditorIntent.moveRight() = EditorIntent_MoveRight;
+
+  /// Space key: exit current block to the right (MathQuill-style).
+  const factory EditorIntent.escapeRight() = EditorIntent_EscapeRight;
   const factory EditorIntent.moveUp() = EditorIntent_MoveUp;
   const factory EditorIntent.moveDown() = EditorIntent_MoveDown;
   const factory EditorIntent.moveToStart() = EditorIntent_MoveToStart;
@@ -95,10 +118,18 @@ class EditorSnapshot {
   /// Current LaTeX string.
   final String latex;
 
-  const EditorSnapshot({required this.editorLayout, required this.latex});
+  /// Whether the cursor is in command input mode (inside a LatexCommandInput node).
+  final bool inCommandInput;
+
+  const EditorSnapshot({
+    required this.editorLayout,
+    required this.latex,
+    required this.inCommandInput,
+  });
 
   @override
-  int get hashCode => editorLayout.hashCode ^ latex.hashCode;
+  int get hashCode =>
+      editorLayout.hashCode ^ latex.hashCode ^ inCommandInput.hashCode;
 
   @override
   bool operator ==(Object other) =>
@@ -106,5 +137,6 @@ class EditorSnapshot {
       other is EditorSnapshot &&
           runtimeType == other.runtimeType &&
           editorLayout == other.editorLayout &&
-          latex == other.latex;
+          latex == other.latex &&
+          inCommandInput == other.inCommandInput;
 }

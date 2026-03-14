@@ -55,7 +55,7 @@ extension EditorIntentPatterns on EditorIntent {
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeMap<TResult extends Object?>({TResult Function( EditorIntent_InsertSymbol value)?  insertSymbol,TResult Function( EditorIntent_InsertFrac value)?  insertFrac,TResult Function( EditorIntent_InsertSqrt value)?  insertSqrt,TResult Function( EditorIntent_InsertNthRoot value)?  insertNthRoot,TResult Function( EditorIntent_InsertSup value)?  insertSup,TResult Function( EditorIntent_InsertSub value)?  insertSub,TResult Function( EditorIntent_InsertParentheses value)?  insertParentheses,TResult Function( EditorIntent_InsertBrackets value)?  insertBrackets,TResult Function( EditorIntent_InsertBraces value)?  insertBraces,TResult Function( EditorIntent_InsertAbs value)?  insertAbs,TResult Function( EditorIntent_InsertSum value)?  insertSum,TResult Function( EditorIntent_InsertProduct value)?  insertProduct,TResult Function( EditorIntent_InsertIntegral value)?  insertIntegral,TResult Function( EditorIntent_InsertLimit value)?  insertLimit,TResult Function( EditorIntent_InsertOverline value)?  insertOverline,TResult Function( EditorIntent_InsertUnderline value)?  insertUnderline,TResult Function( EditorIntent_InsertText value)?  insertText,TResult Function( EditorIntent_MoveLeft value)?  moveLeft,TResult Function( EditorIntent_MoveRight value)?  moveRight,TResult Function( EditorIntent_MoveUp value)?  moveUp,TResult Function( EditorIntent_MoveDown value)?  moveDown,TResult Function( EditorIntent_MoveToStart value)?  moveToStart,TResult Function( EditorIntent_MoveToEnd value)?  moveToEnd,TResult Function( EditorIntent_SelectLeft value)?  selectLeft,TResult Function( EditorIntent_SelectRight value)?  selectRight,TResult Function( EditorIntent_SelectAll value)?  selectAll,TResult Function( EditorIntent_DeleteBackward value)?  deleteBackward,TResult Function( EditorIntent_DeleteForward value)?  deleteForward,TResult Function( EditorIntent_SetLatex value)?  setLatex,TResult Function( EditorIntent_TapBlock value)?  tapBlock,required TResult orElse(),}){
+@optionalTypeArgs TResult maybeMap<TResult extends Object?>({TResult Function( EditorIntent_InsertSymbol value)?  insertSymbol,TResult Function( EditorIntent_InsertFrac value)?  insertFrac,TResult Function( EditorIntent_InsertSqrt value)?  insertSqrt,TResult Function( EditorIntent_InsertNthRoot value)?  insertNthRoot,TResult Function( EditorIntent_InsertSup value)?  insertSup,TResult Function( EditorIntent_InsertSub value)?  insertSub,TResult Function( EditorIntent_InsertParentheses value)?  insertParentheses,TResult Function( EditorIntent_InsertBrackets value)?  insertBrackets,TResult Function( EditorIntent_InsertBraces value)?  insertBraces,TResult Function( EditorIntent_InsertAbs value)?  insertAbs,TResult Function( EditorIntent_InsertSum value)?  insertSum,TResult Function( EditorIntent_InsertProduct value)?  insertProduct,TResult Function( EditorIntent_InsertIntegral value)?  insertIntegral,TResult Function( EditorIntent_InsertLimit value)?  insertLimit,TResult Function( EditorIntent_InsertOverline value)?  insertOverline,TResult Function( EditorIntent_InsertUnderline value)?  insertUnderline,TResult Function( EditorIntent_InsertText value)?  insertText,TResult Function( EditorIntent_InsertCommandInput value)?  insertCommandInput,TResult Function( EditorIntent_CommandInputType value)?  commandInputType,TResult Function( EditorIntent_CommandInputBackspace value)?  commandInputBackspace,TResult Function( EditorIntent_ResolveCommandInput value)?  resolveCommandInput,TResult Function( EditorIntent_CancelCommandInput value)?  cancelCommandInput,TResult Function( EditorIntent_MoveLeft value)?  moveLeft,TResult Function( EditorIntent_MoveRight value)?  moveRight,TResult Function( EditorIntent_EscapeRight value)?  escapeRight,TResult Function( EditorIntent_MoveUp value)?  moveUp,TResult Function( EditorIntent_MoveDown value)?  moveDown,TResult Function( EditorIntent_MoveToStart value)?  moveToStart,TResult Function( EditorIntent_MoveToEnd value)?  moveToEnd,TResult Function( EditorIntent_SelectLeft value)?  selectLeft,TResult Function( EditorIntent_SelectRight value)?  selectRight,TResult Function( EditorIntent_SelectAll value)?  selectAll,TResult Function( EditorIntent_DeleteBackward value)?  deleteBackward,TResult Function( EditorIntent_DeleteForward value)?  deleteForward,TResult Function( EditorIntent_SetLatex value)?  setLatex,TResult Function( EditorIntent_TapBlock value)?  tapBlock,required TResult orElse(),}){
 final _that = this;
 switch (_that) {
 case EditorIntent_InsertSymbol() when insertSymbol != null:
@@ -75,9 +75,15 @@ return insertIntegral(_that);case EditorIntent_InsertLimit() when insertLimit !=
 return insertLimit(_that);case EditorIntent_InsertOverline() when insertOverline != null:
 return insertOverline(_that);case EditorIntent_InsertUnderline() when insertUnderline != null:
 return insertUnderline(_that);case EditorIntent_InsertText() when insertText != null:
-return insertText(_that);case EditorIntent_MoveLeft() when moveLeft != null:
+return insertText(_that);case EditorIntent_InsertCommandInput() when insertCommandInput != null:
+return insertCommandInput(_that);case EditorIntent_CommandInputType() when commandInputType != null:
+return commandInputType(_that);case EditorIntent_CommandInputBackspace() when commandInputBackspace != null:
+return commandInputBackspace(_that);case EditorIntent_ResolveCommandInput() when resolveCommandInput != null:
+return resolveCommandInput(_that);case EditorIntent_CancelCommandInput() when cancelCommandInput != null:
+return cancelCommandInput(_that);case EditorIntent_MoveLeft() when moveLeft != null:
 return moveLeft(_that);case EditorIntent_MoveRight() when moveRight != null:
-return moveRight(_that);case EditorIntent_MoveUp() when moveUp != null:
+return moveRight(_that);case EditorIntent_EscapeRight() when escapeRight != null:
+return escapeRight(_that);case EditorIntent_MoveUp() when moveUp != null:
 return moveUp(_that);case EditorIntent_MoveDown() when moveDown != null:
 return moveDown(_that);case EditorIntent_MoveToStart() when moveToStart != null:
 return moveToStart(_that);case EditorIntent_MoveToEnd() when moveToEnd != null:
@@ -106,7 +112,7 @@ return tapBlock(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult map<TResult extends Object?>({required TResult Function( EditorIntent_InsertSymbol value)  insertSymbol,required TResult Function( EditorIntent_InsertFrac value)  insertFrac,required TResult Function( EditorIntent_InsertSqrt value)  insertSqrt,required TResult Function( EditorIntent_InsertNthRoot value)  insertNthRoot,required TResult Function( EditorIntent_InsertSup value)  insertSup,required TResult Function( EditorIntent_InsertSub value)  insertSub,required TResult Function( EditorIntent_InsertParentheses value)  insertParentheses,required TResult Function( EditorIntent_InsertBrackets value)  insertBrackets,required TResult Function( EditorIntent_InsertBraces value)  insertBraces,required TResult Function( EditorIntent_InsertAbs value)  insertAbs,required TResult Function( EditorIntent_InsertSum value)  insertSum,required TResult Function( EditorIntent_InsertProduct value)  insertProduct,required TResult Function( EditorIntent_InsertIntegral value)  insertIntegral,required TResult Function( EditorIntent_InsertLimit value)  insertLimit,required TResult Function( EditorIntent_InsertOverline value)  insertOverline,required TResult Function( EditorIntent_InsertUnderline value)  insertUnderline,required TResult Function( EditorIntent_InsertText value)  insertText,required TResult Function( EditorIntent_MoveLeft value)  moveLeft,required TResult Function( EditorIntent_MoveRight value)  moveRight,required TResult Function( EditorIntent_MoveUp value)  moveUp,required TResult Function( EditorIntent_MoveDown value)  moveDown,required TResult Function( EditorIntent_MoveToStart value)  moveToStart,required TResult Function( EditorIntent_MoveToEnd value)  moveToEnd,required TResult Function( EditorIntent_SelectLeft value)  selectLeft,required TResult Function( EditorIntent_SelectRight value)  selectRight,required TResult Function( EditorIntent_SelectAll value)  selectAll,required TResult Function( EditorIntent_DeleteBackward value)  deleteBackward,required TResult Function( EditorIntent_DeleteForward value)  deleteForward,required TResult Function( EditorIntent_SetLatex value)  setLatex,required TResult Function( EditorIntent_TapBlock value)  tapBlock,}){
+@optionalTypeArgs TResult map<TResult extends Object?>({required TResult Function( EditorIntent_InsertSymbol value)  insertSymbol,required TResult Function( EditorIntent_InsertFrac value)  insertFrac,required TResult Function( EditorIntent_InsertSqrt value)  insertSqrt,required TResult Function( EditorIntent_InsertNthRoot value)  insertNthRoot,required TResult Function( EditorIntent_InsertSup value)  insertSup,required TResult Function( EditorIntent_InsertSub value)  insertSub,required TResult Function( EditorIntent_InsertParentheses value)  insertParentheses,required TResult Function( EditorIntent_InsertBrackets value)  insertBrackets,required TResult Function( EditorIntent_InsertBraces value)  insertBraces,required TResult Function( EditorIntent_InsertAbs value)  insertAbs,required TResult Function( EditorIntent_InsertSum value)  insertSum,required TResult Function( EditorIntent_InsertProduct value)  insertProduct,required TResult Function( EditorIntent_InsertIntegral value)  insertIntegral,required TResult Function( EditorIntent_InsertLimit value)  insertLimit,required TResult Function( EditorIntent_InsertOverline value)  insertOverline,required TResult Function( EditorIntent_InsertUnderline value)  insertUnderline,required TResult Function( EditorIntent_InsertText value)  insertText,required TResult Function( EditorIntent_InsertCommandInput value)  insertCommandInput,required TResult Function( EditorIntent_CommandInputType value)  commandInputType,required TResult Function( EditorIntent_CommandInputBackspace value)  commandInputBackspace,required TResult Function( EditorIntent_ResolveCommandInput value)  resolveCommandInput,required TResult Function( EditorIntent_CancelCommandInput value)  cancelCommandInput,required TResult Function( EditorIntent_MoveLeft value)  moveLeft,required TResult Function( EditorIntent_MoveRight value)  moveRight,required TResult Function( EditorIntent_EscapeRight value)  escapeRight,required TResult Function( EditorIntent_MoveUp value)  moveUp,required TResult Function( EditorIntent_MoveDown value)  moveDown,required TResult Function( EditorIntent_MoveToStart value)  moveToStart,required TResult Function( EditorIntent_MoveToEnd value)  moveToEnd,required TResult Function( EditorIntent_SelectLeft value)  selectLeft,required TResult Function( EditorIntent_SelectRight value)  selectRight,required TResult Function( EditorIntent_SelectAll value)  selectAll,required TResult Function( EditorIntent_DeleteBackward value)  deleteBackward,required TResult Function( EditorIntent_DeleteForward value)  deleteForward,required TResult Function( EditorIntent_SetLatex value)  setLatex,required TResult Function( EditorIntent_TapBlock value)  tapBlock,}){
 final _that = this;
 switch (_that) {
 case EditorIntent_InsertSymbol():
@@ -126,9 +132,15 @@ return insertIntegral(_that);case EditorIntent_InsertLimit():
 return insertLimit(_that);case EditorIntent_InsertOverline():
 return insertOverline(_that);case EditorIntent_InsertUnderline():
 return insertUnderline(_that);case EditorIntent_InsertText():
-return insertText(_that);case EditorIntent_MoveLeft():
+return insertText(_that);case EditorIntent_InsertCommandInput():
+return insertCommandInput(_that);case EditorIntent_CommandInputType():
+return commandInputType(_that);case EditorIntent_CommandInputBackspace():
+return commandInputBackspace(_that);case EditorIntent_ResolveCommandInput():
+return resolveCommandInput(_that);case EditorIntent_CancelCommandInput():
+return cancelCommandInput(_that);case EditorIntent_MoveLeft():
 return moveLeft(_that);case EditorIntent_MoveRight():
-return moveRight(_that);case EditorIntent_MoveUp():
+return moveRight(_that);case EditorIntent_EscapeRight():
+return escapeRight(_that);case EditorIntent_MoveUp():
 return moveUp(_that);case EditorIntent_MoveDown():
 return moveDown(_that);case EditorIntent_MoveToStart():
 return moveToStart(_that);case EditorIntent_MoveToEnd():
@@ -153,7 +165,7 @@ return tapBlock(_that);}
 /// }
 /// ```
 
-@optionalTypeArgs TResult? mapOrNull<TResult extends Object?>({TResult? Function( EditorIntent_InsertSymbol value)?  insertSymbol,TResult? Function( EditorIntent_InsertFrac value)?  insertFrac,TResult? Function( EditorIntent_InsertSqrt value)?  insertSqrt,TResult? Function( EditorIntent_InsertNthRoot value)?  insertNthRoot,TResult? Function( EditorIntent_InsertSup value)?  insertSup,TResult? Function( EditorIntent_InsertSub value)?  insertSub,TResult? Function( EditorIntent_InsertParentheses value)?  insertParentheses,TResult? Function( EditorIntent_InsertBrackets value)?  insertBrackets,TResult? Function( EditorIntent_InsertBraces value)?  insertBraces,TResult? Function( EditorIntent_InsertAbs value)?  insertAbs,TResult? Function( EditorIntent_InsertSum value)?  insertSum,TResult? Function( EditorIntent_InsertProduct value)?  insertProduct,TResult? Function( EditorIntent_InsertIntegral value)?  insertIntegral,TResult? Function( EditorIntent_InsertLimit value)?  insertLimit,TResult? Function( EditorIntent_InsertOverline value)?  insertOverline,TResult? Function( EditorIntent_InsertUnderline value)?  insertUnderline,TResult? Function( EditorIntent_InsertText value)?  insertText,TResult? Function( EditorIntent_MoveLeft value)?  moveLeft,TResult? Function( EditorIntent_MoveRight value)?  moveRight,TResult? Function( EditorIntent_MoveUp value)?  moveUp,TResult? Function( EditorIntent_MoveDown value)?  moveDown,TResult? Function( EditorIntent_MoveToStart value)?  moveToStart,TResult? Function( EditorIntent_MoveToEnd value)?  moveToEnd,TResult? Function( EditorIntent_SelectLeft value)?  selectLeft,TResult? Function( EditorIntent_SelectRight value)?  selectRight,TResult? Function( EditorIntent_SelectAll value)?  selectAll,TResult? Function( EditorIntent_DeleteBackward value)?  deleteBackward,TResult? Function( EditorIntent_DeleteForward value)?  deleteForward,TResult? Function( EditorIntent_SetLatex value)?  setLatex,TResult? Function( EditorIntent_TapBlock value)?  tapBlock,}){
+@optionalTypeArgs TResult? mapOrNull<TResult extends Object?>({TResult? Function( EditorIntent_InsertSymbol value)?  insertSymbol,TResult? Function( EditorIntent_InsertFrac value)?  insertFrac,TResult? Function( EditorIntent_InsertSqrt value)?  insertSqrt,TResult? Function( EditorIntent_InsertNthRoot value)?  insertNthRoot,TResult? Function( EditorIntent_InsertSup value)?  insertSup,TResult? Function( EditorIntent_InsertSub value)?  insertSub,TResult? Function( EditorIntent_InsertParentheses value)?  insertParentheses,TResult? Function( EditorIntent_InsertBrackets value)?  insertBrackets,TResult? Function( EditorIntent_InsertBraces value)?  insertBraces,TResult? Function( EditorIntent_InsertAbs value)?  insertAbs,TResult? Function( EditorIntent_InsertSum value)?  insertSum,TResult? Function( EditorIntent_InsertProduct value)?  insertProduct,TResult? Function( EditorIntent_InsertIntegral value)?  insertIntegral,TResult? Function( EditorIntent_InsertLimit value)?  insertLimit,TResult? Function( EditorIntent_InsertOverline value)?  insertOverline,TResult? Function( EditorIntent_InsertUnderline value)?  insertUnderline,TResult? Function( EditorIntent_InsertText value)?  insertText,TResult? Function( EditorIntent_InsertCommandInput value)?  insertCommandInput,TResult? Function( EditorIntent_CommandInputType value)?  commandInputType,TResult? Function( EditorIntent_CommandInputBackspace value)?  commandInputBackspace,TResult? Function( EditorIntent_ResolveCommandInput value)?  resolveCommandInput,TResult? Function( EditorIntent_CancelCommandInput value)?  cancelCommandInput,TResult? Function( EditorIntent_MoveLeft value)?  moveLeft,TResult? Function( EditorIntent_MoveRight value)?  moveRight,TResult? Function( EditorIntent_EscapeRight value)?  escapeRight,TResult? Function( EditorIntent_MoveUp value)?  moveUp,TResult? Function( EditorIntent_MoveDown value)?  moveDown,TResult? Function( EditorIntent_MoveToStart value)?  moveToStart,TResult? Function( EditorIntent_MoveToEnd value)?  moveToEnd,TResult? Function( EditorIntent_SelectLeft value)?  selectLeft,TResult? Function( EditorIntent_SelectRight value)?  selectRight,TResult? Function( EditorIntent_SelectAll value)?  selectAll,TResult? Function( EditorIntent_DeleteBackward value)?  deleteBackward,TResult? Function( EditorIntent_DeleteForward value)?  deleteForward,TResult? Function( EditorIntent_SetLatex value)?  setLatex,TResult? Function( EditorIntent_TapBlock value)?  tapBlock,}){
 final _that = this;
 switch (_that) {
 case EditorIntent_InsertSymbol() when insertSymbol != null:
@@ -173,9 +185,15 @@ return insertIntegral(_that);case EditorIntent_InsertLimit() when insertLimit !=
 return insertLimit(_that);case EditorIntent_InsertOverline() when insertOverline != null:
 return insertOverline(_that);case EditorIntent_InsertUnderline() when insertUnderline != null:
 return insertUnderline(_that);case EditorIntent_InsertText() when insertText != null:
-return insertText(_that);case EditorIntent_MoveLeft() when moveLeft != null:
+return insertText(_that);case EditorIntent_InsertCommandInput() when insertCommandInput != null:
+return insertCommandInput(_that);case EditorIntent_CommandInputType() when commandInputType != null:
+return commandInputType(_that);case EditorIntent_CommandInputBackspace() when commandInputBackspace != null:
+return commandInputBackspace(_that);case EditorIntent_ResolveCommandInput() when resolveCommandInput != null:
+return resolveCommandInput(_that);case EditorIntent_CancelCommandInput() when cancelCommandInput != null:
+return cancelCommandInput(_that);case EditorIntent_MoveLeft() when moveLeft != null:
 return moveLeft(_that);case EditorIntent_MoveRight() when moveRight != null:
-return moveRight(_that);case EditorIntent_MoveUp() when moveUp != null:
+return moveRight(_that);case EditorIntent_EscapeRight() when escapeRight != null:
+return escapeRight(_that);case EditorIntent_MoveUp() when moveUp != null:
 return moveUp(_that);case EditorIntent_MoveDown() when moveDown != null:
 return moveDown(_that);case EditorIntent_MoveToStart() when moveToStart != null:
 return moveToStart(_that);case EditorIntent_MoveToEnd() when moveToEnd != null:
@@ -203,7 +221,7 @@ return tapBlock(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>({TResult Function( String ch)?  insertSymbol,TResult Function()?  insertFrac,TResult Function()?  insertSqrt,TResult Function()?  insertNthRoot,TResult Function()?  insertSup,TResult Function()?  insertSub,TResult Function()?  insertParentheses,TResult Function()?  insertBrackets,TResult Function()?  insertBraces,TResult Function()?  insertAbs,TResult Function()?  insertSum,TResult Function()?  insertProduct,TResult Function()?  insertIntegral,TResult Function()?  insertLimit,TResult Function()?  insertOverline,TResult Function()?  insertUnderline,TResult Function()?  insertText,TResult Function()?  moveLeft,TResult Function()?  moveRight,TResult Function()?  moveUp,TResult Function()?  moveDown,TResult Function()?  moveToStart,TResult Function()?  moveToEnd,TResult Function()?  selectLeft,TResult Function()?  selectRight,TResult Function()?  selectAll,TResult Function()?  deleteBackward,TResult Function()?  deleteForward,TResult Function( String latex)?  setLatex,TResult Function( int blockId,  int caretIndex)?  tapBlock,required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>({TResult Function( String ch)?  insertSymbol,TResult Function()?  insertFrac,TResult Function()?  insertSqrt,TResult Function()?  insertNthRoot,TResult Function()?  insertSup,TResult Function()?  insertSub,TResult Function()?  insertParentheses,TResult Function()?  insertBrackets,TResult Function()?  insertBraces,TResult Function()?  insertAbs,TResult Function()?  insertSum,TResult Function()?  insertProduct,TResult Function()?  insertIntegral,TResult Function()?  insertLimit,TResult Function()?  insertOverline,TResult Function()?  insertUnderline,TResult Function()?  insertText,TResult Function()?  insertCommandInput,TResult Function( String ch)?  commandInputType,TResult Function()?  commandInputBackspace,TResult Function()?  resolveCommandInput,TResult Function()?  cancelCommandInput,TResult Function()?  moveLeft,TResult Function()?  moveRight,TResult Function()?  escapeRight,TResult Function()?  moveUp,TResult Function()?  moveDown,TResult Function()?  moveToStart,TResult Function()?  moveToEnd,TResult Function()?  selectLeft,TResult Function()?  selectRight,TResult Function()?  selectAll,TResult Function()?  deleteBackward,TResult Function()?  deleteForward,TResult Function( String latex)?  setLatex,TResult Function( int blockId,  int caretIndex)?  tapBlock,required TResult orElse(),}) {final _that = this;
 switch (_that) {
 case EditorIntent_InsertSymbol() when insertSymbol != null:
 return insertSymbol(_that.ch);case EditorIntent_InsertFrac() when insertFrac != null:
@@ -222,9 +240,15 @@ return insertIntegral();case EditorIntent_InsertLimit() when insertLimit != null
 return insertLimit();case EditorIntent_InsertOverline() when insertOverline != null:
 return insertOverline();case EditorIntent_InsertUnderline() when insertUnderline != null:
 return insertUnderline();case EditorIntent_InsertText() when insertText != null:
-return insertText();case EditorIntent_MoveLeft() when moveLeft != null:
+return insertText();case EditorIntent_InsertCommandInput() when insertCommandInput != null:
+return insertCommandInput();case EditorIntent_CommandInputType() when commandInputType != null:
+return commandInputType(_that.ch);case EditorIntent_CommandInputBackspace() when commandInputBackspace != null:
+return commandInputBackspace();case EditorIntent_ResolveCommandInput() when resolveCommandInput != null:
+return resolveCommandInput();case EditorIntent_CancelCommandInput() when cancelCommandInput != null:
+return cancelCommandInput();case EditorIntent_MoveLeft() when moveLeft != null:
 return moveLeft();case EditorIntent_MoveRight() when moveRight != null:
-return moveRight();case EditorIntent_MoveUp() when moveUp != null:
+return moveRight();case EditorIntent_EscapeRight() when escapeRight != null:
+return escapeRight();case EditorIntent_MoveUp() when moveUp != null:
 return moveUp();case EditorIntent_MoveDown() when moveDown != null:
 return moveDown();case EditorIntent_MoveToStart() when moveToStart != null:
 return moveToStart();case EditorIntent_MoveToEnd() when moveToEnd != null:
@@ -253,7 +277,7 @@ return tapBlock(_that.blockId,_that.caretIndex);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>({required TResult Function( String ch)  insertSymbol,required TResult Function()  insertFrac,required TResult Function()  insertSqrt,required TResult Function()  insertNthRoot,required TResult Function()  insertSup,required TResult Function()  insertSub,required TResult Function()  insertParentheses,required TResult Function()  insertBrackets,required TResult Function()  insertBraces,required TResult Function()  insertAbs,required TResult Function()  insertSum,required TResult Function()  insertProduct,required TResult Function()  insertIntegral,required TResult Function()  insertLimit,required TResult Function()  insertOverline,required TResult Function()  insertUnderline,required TResult Function()  insertText,required TResult Function()  moveLeft,required TResult Function()  moveRight,required TResult Function()  moveUp,required TResult Function()  moveDown,required TResult Function()  moveToStart,required TResult Function()  moveToEnd,required TResult Function()  selectLeft,required TResult Function()  selectRight,required TResult Function()  selectAll,required TResult Function()  deleteBackward,required TResult Function()  deleteForward,required TResult Function( String latex)  setLatex,required TResult Function( int blockId,  int caretIndex)  tapBlock,}) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>({required TResult Function( String ch)  insertSymbol,required TResult Function()  insertFrac,required TResult Function()  insertSqrt,required TResult Function()  insertNthRoot,required TResult Function()  insertSup,required TResult Function()  insertSub,required TResult Function()  insertParentheses,required TResult Function()  insertBrackets,required TResult Function()  insertBraces,required TResult Function()  insertAbs,required TResult Function()  insertSum,required TResult Function()  insertProduct,required TResult Function()  insertIntegral,required TResult Function()  insertLimit,required TResult Function()  insertOverline,required TResult Function()  insertUnderline,required TResult Function()  insertText,required TResult Function()  insertCommandInput,required TResult Function( String ch)  commandInputType,required TResult Function()  commandInputBackspace,required TResult Function()  resolveCommandInput,required TResult Function()  cancelCommandInput,required TResult Function()  moveLeft,required TResult Function()  moveRight,required TResult Function()  escapeRight,required TResult Function()  moveUp,required TResult Function()  moveDown,required TResult Function()  moveToStart,required TResult Function()  moveToEnd,required TResult Function()  selectLeft,required TResult Function()  selectRight,required TResult Function()  selectAll,required TResult Function()  deleteBackward,required TResult Function()  deleteForward,required TResult Function( String latex)  setLatex,required TResult Function( int blockId,  int caretIndex)  tapBlock,}) {final _that = this;
 switch (_that) {
 case EditorIntent_InsertSymbol():
 return insertSymbol(_that.ch);case EditorIntent_InsertFrac():
@@ -272,9 +296,15 @@ return insertIntegral();case EditorIntent_InsertLimit():
 return insertLimit();case EditorIntent_InsertOverline():
 return insertOverline();case EditorIntent_InsertUnderline():
 return insertUnderline();case EditorIntent_InsertText():
-return insertText();case EditorIntent_MoveLeft():
+return insertText();case EditorIntent_InsertCommandInput():
+return insertCommandInput();case EditorIntent_CommandInputType():
+return commandInputType(_that.ch);case EditorIntent_CommandInputBackspace():
+return commandInputBackspace();case EditorIntent_ResolveCommandInput():
+return resolveCommandInput();case EditorIntent_CancelCommandInput():
+return cancelCommandInput();case EditorIntent_MoveLeft():
 return moveLeft();case EditorIntent_MoveRight():
-return moveRight();case EditorIntent_MoveUp():
+return moveRight();case EditorIntent_EscapeRight():
+return escapeRight();case EditorIntent_MoveUp():
 return moveUp();case EditorIntent_MoveDown():
 return moveDown();case EditorIntent_MoveToStart():
 return moveToStart();case EditorIntent_MoveToEnd():
@@ -299,7 +329,7 @@ return tapBlock(_that.blockId,_that.caretIndex);}
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>({TResult? Function( String ch)?  insertSymbol,TResult? Function()?  insertFrac,TResult? Function()?  insertSqrt,TResult? Function()?  insertNthRoot,TResult? Function()?  insertSup,TResult? Function()?  insertSub,TResult? Function()?  insertParentheses,TResult? Function()?  insertBrackets,TResult? Function()?  insertBraces,TResult? Function()?  insertAbs,TResult? Function()?  insertSum,TResult? Function()?  insertProduct,TResult? Function()?  insertIntegral,TResult? Function()?  insertLimit,TResult? Function()?  insertOverline,TResult? Function()?  insertUnderline,TResult? Function()?  insertText,TResult? Function()?  moveLeft,TResult? Function()?  moveRight,TResult? Function()?  moveUp,TResult? Function()?  moveDown,TResult? Function()?  moveToStart,TResult? Function()?  moveToEnd,TResult? Function()?  selectLeft,TResult? Function()?  selectRight,TResult? Function()?  selectAll,TResult? Function()?  deleteBackward,TResult? Function()?  deleteForward,TResult? Function( String latex)?  setLatex,TResult? Function( int blockId,  int caretIndex)?  tapBlock,}) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>({TResult? Function( String ch)?  insertSymbol,TResult? Function()?  insertFrac,TResult? Function()?  insertSqrt,TResult? Function()?  insertNthRoot,TResult? Function()?  insertSup,TResult? Function()?  insertSub,TResult? Function()?  insertParentheses,TResult? Function()?  insertBrackets,TResult? Function()?  insertBraces,TResult? Function()?  insertAbs,TResult? Function()?  insertSum,TResult? Function()?  insertProduct,TResult? Function()?  insertIntegral,TResult? Function()?  insertLimit,TResult? Function()?  insertOverline,TResult? Function()?  insertUnderline,TResult? Function()?  insertText,TResult? Function()?  insertCommandInput,TResult? Function( String ch)?  commandInputType,TResult? Function()?  commandInputBackspace,TResult? Function()?  resolveCommandInput,TResult? Function()?  cancelCommandInput,TResult? Function()?  moveLeft,TResult? Function()?  moveRight,TResult? Function()?  escapeRight,TResult? Function()?  moveUp,TResult? Function()?  moveDown,TResult? Function()?  moveToStart,TResult? Function()?  moveToEnd,TResult? Function()?  selectLeft,TResult? Function()?  selectRight,TResult? Function()?  selectAll,TResult? Function()?  deleteBackward,TResult? Function()?  deleteForward,TResult? Function( String latex)?  setLatex,TResult? Function( int blockId,  int caretIndex)?  tapBlock,}) {final _that = this;
 switch (_that) {
 case EditorIntent_InsertSymbol() when insertSymbol != null:
 return insertSymbol(_that.ch);case EditorIntent_InsertFrac() when insertFrac != null:
@@ -318,9 +348,15 @@ return insertIntegral();case EditorIntent_InsertLimit() when insertLimit != null
 return insertLimit();case EditorIntent_InsertOverline() when insertOverline != null:
 return insertOverline();case EditorIntent_InsertUnderline() when insertUnderline != null:
 return insertUnderline();case EditorIntent_InsertText() when insertText != null:
-return insertText();case EditorIntent_MoveLeft() when moveLeft != null:
+return insertText();case EditorIntent_InsertCommandInput() when insertCommandInput != null:
+return insertCommandInput();case EditorIntent_CommandInputType() when commandInputType != null:
+return commandInputType(_that.ch);case EditorIntent_CommandInputBackspace() when commandInputBackspace != null:
+return commandInputBackspace();case EditorIntent_ResolveCommandInput() when resolveCommandInput != null:
+return resolveCommandInput();case EditorIntent_CancelCommandInput() when cancelCommandInput != null:
+return cancelCommandInput();case EditorIntent_MoveLeft() when moveLeft != null:
 return moveLeft();case EditorIntent_MoveRight() when moveRight != null:
-return moveRight();case EditorIntent_MoveUp() when moveUp != null:
+return moveRight();case EditorIntent_EscapeRight() when escapeRight != null:
+return escapeRight();case EditorIntent_MoveUp() when moveUp != null:
 return moveUp();case EditorIntent_MoveDown() when moveDown != null:
 return moveDown();case EditorIntent_MoveToStart() when moveToStart != null:
 return moveToStart();case EditorIntent_MoveToEnd() when moveToEnd != null:
@@ -920,6 +956,200 @@ String toString() {
 /// @nodoc
 
 
+class EditorIntent_InsertCommandInput extends EditorIntent {
+  const EditorIntent_InsertCommandInput(): super._();
+  
+
+
+
+
+
+
+@override
+bool operator ==(Object other) {
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is EditorIntent_InsertCommandInput);
+}
+
+
+@override
+int get hashCode => runtimeType.hashCode;
+
+@override
+String toString() {
+  return 'EditorIntent.insertCommandInput()';
+}
+
+
+}
+
+
+
+
+/// @nodoc
+
+
+class EditorIntent_CommandInputType extends EditorIntent {
+  const EditorIntent_CommandInputType({required this.ch}): super._();
+  
+
+ final  String ch;
+
+/// Create a copy of EditorIntent
+/// with the given fields replaced by the non-null parameter values.
+@JsonKey(includeFromJson: false, includeToJson: false)
+@pragma('vm:prefer-inline')
+$EditorIntent_CommandInputTypeCopyWith<EditorIntent_CommandInputType> get copyWith => _$EditorIntent_CommandInputTypeCopyWithImpl<EditorIntent_CommandInputType>(this, _$identity);
+
+
+
+@override
+bool operator ==(Object other) {
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is EditorIntent_CommandInputType&&(identical(other.ch, ch) || other.ch == ch));
+}
+
+
+@override
+int get hashCode => Object.hash(runtimeType,ch);
+
+@override
+String toString() {
+  return 'EditorIntent.commandInputType(ch: $ch)';
+}
+
+
+}
+
+/// @nodoc
+abstract mixin class $EditorIntent_CommandInputTypeCopyWith<$Res> implements $EditorIntentCopyWith<$Res> {
+  factory $EditorIntent_CommandInputTypeCopyWith(EditorIntent_CommandInputType value, $Res Function(EditorIntent_CommandInputType) _then) = _$EditorIntent_CommandInputTypeCopyWithImpl;
+@useResult
+$Res call({
+ String ch
+});
+
+
+
+
+}
+/// @nodoc
+class _$EditorIntent_CommandInputTypeCopyWithImpl<$Res>
+    implements $EditorIntent_CommandInputTypeCopyWith<$Res> {
+  _$EditorIntent_CommandInputTypeCopyWithImpl(this._self, this._then);
+
+  final EditorIntent_CommandInputType _self;
+  final $Res Function(EditorIntent_CommandInputType) _then;
+
+/// Create a copy of EditorIntent
+/// with the given fields replaced by the non-null parameter values.
+@pragma('vm:prefer-inline') $Res call({Object? ch = null,}) {
+  return _then(EditorIntent_CommandInputType(
+ch: null == ch ? _self.ch : ch // ignore: cast_nullable_to_non_nullable
+as String,
+  ));
+}
+
+
+}
+
+/// @nodoc
+
+
+class EditorIntent_CommandInputBackspace extends EditorIntent {
+  const EditorIntent_CommandInputBackspace(): super._();
+  
+
+
+
+
+
+
+@override
+bool operator ==(Object other) {
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is EditorIntent_CommandInputBackspace);
+}
+
+
+@override
+int get hashCode => runtimeType.hashCode;
+
+@override
+String toString() {
+  return 'EditorIntent.commandInputBackspace()';
+}
+
+
+}
+
+
+
+
+/// @nodoc
+
+
+class EditorIntent_ResolveCommandInput extends EditorIntent {
+  const EditorIntent_ResolveCommandInput(): super._();
+  
+
+
+
+
+
+
+@override
+bool operator ==(Object other) {
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is EditorIntent_ResolveCommandInput);
+}
+
+
+@override
+int get hashCode => runtimeType.hashCode;
+
+@override
+String toString() {
+  return 'EditorIntent.resolveCommandInput()';
+}
+
+
+}
+
+
+
+
+/// @nodoc
+
+
+class EditorIntent_CancelCommandInput extends EditorIntent {
+  const EditorIntent_CancelCommandInput(): super._();
+  
+
+
+
+
+
+
+@override
+bool operator ==(Object other) {
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is EditorIntent_CancelCommandInput);
+}
+
+
+@override
+int get hashCode => runtimeType.hashCode;
+
+@override
+String toString() {
+  return 'EditorIntent.cancelCommandInput()';
+}
+
+
+}
+
+
+
+
+/// @nodoc
+
+
 class EditorIntent_MoveLeft extends EditorIntent {
   const EditorIntent_MoveLeft(): super._();
   
@@ -973,6 +1203,38 @@ int get hashCode => runtimeType.hashCode;
 @override
 String toString() {
   return 'EditorIntent.moveRight()';
+}
+
+
+}
+
+
+
+
+/// @nodoc
+
+
+class EditorIntent_EscapeRight extends EditorIntent {
+  const EditorIntent_EscapeRight(): super._();
+  
+
+
+
+
+
+
+@override
+bool operator ==(Object other) {
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is EditorIntent_EscapeRight);
+}
+
+
+@override
+int get hashCode => runtimeType.hashCode;
+
+@override
+String toString() {
+  return 'EditorIntent.escapeRight()';
 }
 
 

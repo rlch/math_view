@@ -85,6 +85,9 @@ sealed class MathNode with _$MathNode {
     required double y,
     required String fontName,
     required double scale,
+
+    /// Advance width in em (actual glyph width from font metrics, scaled).
+    required double width,
     String? color,
 
     /// Optional opaque ID for correlating with a source tree (e.g. editor arena).

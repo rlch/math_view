@@ -11,6 +11,9 @@ pub enum Intent {
     // --- Cursor movement ---
     MoveLeft,
     MoveRight,
+    /// MathQuill-style "escape right": exit the current block to the right.
+    /// If in root block, behaves like MoveRight.
+    EscapeRight,
     MoveUp,
     MoveDown,
     MoveToStart,
@@ -28,6 +31,21 @@ pub enum Intent {
     // --- Structural ---
     /// Wrap current selection in a command (frac, sqrt, etc.)
     WrapInCommand(CommandKind),
+
+    // --- LaTeX command input ---
+    /// Begin command input mode: insert a LatexCommandInput node at cursor.
+    InsertCommandInput,
+    /// Append a character to the LatexCommandInput node to the left of cursor.
+    CommandInputType(char),
+    /// Remove last character from the LatexCommandInput, or remove it entirely if empty.
+    CommandInputBackspace,
+    /// Resolve the LatexCommandInput node to the left of cursor: extract text, remove node, insert result.
+    ResolveCurrentCommandInput,
+    /// Cancel command input: remove the LatexCommandInput node entirely.
+    CancelCommandInput,
+    /// Resolve a typed command name (e.g. "frac", "alpha") into the appropriate insertion.
+    /// Used directly in tests; the FFI uses ResolveCurrentCommandInput instead.
+    ResolveCommandInput(String),
 
     // --- Import ---
     /// Replace entire content with parsed LaTeX.

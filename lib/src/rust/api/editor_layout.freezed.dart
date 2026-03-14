@@ -55,7 +55,7 @@ extension CommandLayoutKindPatterns on CommandLayoutKind {
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeMap<TResult extends Object?>({TResult Function( CommandLayoutKind_Frac value)?  frac,TResult Function( CommandLayoutKind_Sqrt value)?  sqrt,TResult Function( CommandLayoutKind_NthRoot value)?  nthRoot,TResult Function( CommandLayoutKind_Sup value)?  sup,TResult Function( CommandLayoutKind_Sub value)?  sub,TResult Function( CommandLayoutKind_SupSub value)?  supSub,TResult Function( CommandLayoutKind_Overline value)?  overline,TResult Function( CommandLayoutKind_Underline value)?  underline,TResult Function( CommandLayoutKind_LeftRight value)?  leftRight,TResult Function( CommandLayoutKind_SumLike value)?  sumLike,TResult Function( CommandLayoutKind_Matrix value)?  matrix,TResult Function( CommandLayoutKind_Text value)?  text,TResult Function( CommandLayoutKind_Other value)?  other,required TResult orElse(),}){
+@optionalTypeArgs TResult maybeMap<TResult extends Object?>({TResult Function( CommandLayoutKind_Frac value)?  frac,TResult Function( CommandLayoutKind_Sqrt value)?  sqrt,TResult Function( CommandLayoutKind_NthRoot value)?  nthRoot,TResult Function( CommandLayoutKind_Sup value)?  sup,TResult Function( CommandLayoutKind_Sub value)?  sub,TResult Function( CommandLayoutKind_SupSub value)?  supSub,TResult Function( CommandLayoutKind_Overline value)?  overline,TResult Function( CommandLayoutKind_Underline value)?  underline,TResult Function( CommandLayoutKind_LeftRight value)?  leftRight,TResult Function( CommandLayoutKind_SumLike value)?  sumLike,TResult Function( CommandLayoutKind_Matrix value)?  matrix,TResult Function( CommandLayoutKind_Text value)?  text,TResult Function( CommandLayoutKind_LatexCommandInput value)?  latexCommandInput,TResult Function( CommandLayoutKind_Other value)?  other,required TResult orElse(),}){
 final _that = this;
 switch (_that) {
 case CommandLayoutKind_Frac() when frac != null:
@@ -70,7 +70,8 @@ return underline(_that);case CommandLayoutKind_LeftRight() when leftRight != nul
 return leftRight(_that);case CommandLayoutKind_SumLike() when sumLike != null:
 return sumLike(_that);case CommandLayoutKind_Matrix() when matrix != null:
 return matrix(_that);case CommandLayoutKind_Text() when text != null:
-return text(_that);case CommandLayoutKind_Other() when other != null:
+return text(_that);case CommandLayoutKind_LatexCommandInput() when latexCommandInput != null:
+return latexCommandInput(_that);case CommandLayoutKind_Other() when other != null:
 return other(_that);case _:
   return orElse();
 
@@ -89,7 +90,7 @@ return other(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult map<TResult extends Object?>({required TResult Function( CommandLayoutKind_Frac value)  frac,required TResult Function( CommandLayoutKind_Sqrt value)  sqrt,required TResult Function( CommandLayoutKind_NthRoot value)  nthRoot,required TResult Function( CommandLayoutKind_Sup value)  sup,required TResult Function( CommandLayoutKind_Sub value)  sub,required TResult Function( CommandLayoutKind_SupSub value)  supSub,required TResult Function( CommandLayoutKind_Overline value)  overline,required TResult Function( CommandLayoutKind_Underline value)  underline,required TResult Function( CommandLayoutKind_LeftRight value)  leftRight,required TResult Function( CommandLayoutKind_SumLike value)  sumLike,required TResult Function( CommandLayoutKind_Matrix value)  matrix,required TResult Function( CommandLayoutKind_Text value)  text,required TResult Function( CommandLayoutKind_Other value)  other,}){
+@optionalTypeArgs TResult map<TResult extends Object?>({required TResult Function( CommandLayoutKind_Frac value)  frac,required TResult Function( CommandLayoutKind_Sqrt value)  sqrt,required TResult Function( CommandLayoutKind_NthRoot value)  nthRoot,required TResult Function( CommandLayoutKind_Sup value)  sup,required TResult Function( CommandLayoutKind_Sub value)  sub,required TResult Function( CommandLayoutKind_SupSub value)  supSub,required TResult Function( CommandLayoutKind_Overline value)  overline,required TResult Function( CommandLayoutKind_Underline value)  underline,required TResult Function( CommandLayoutKind_LeftRight value)  leftRight,required TResult Function( CommandLayoutKind_SumLike value)  sumLike,required TResult Function( CommandLayoutKind_Matrix value)  matrix,required TResult Function( CommandLayoutKind_Text value)  text,required TResult Function( CommandLayoutKind_LatexCommandInput value)  latexCommandInput,required TResult Function( CommandLayoutKind_Other value)  other,}){
 final _that = this;
 switch (_that) {
 case CommandLayoutKind_Frac():
@@ -104,7 +105,8 @@ return underline(_that);case CommandLayoutKind_LeftRight():
 return leftRight(_that);case CommandLayoutKind_SumLike():
 return sumLike(_that);case CommandLayoutKind_Matrix():
 return matrix(_that);case CommandLayoutKind_Text():
-return text(_that);case CommandLayoutKind_Other():
+return text(_that);case CommandLayoutKind_LatexCommandInput():
+return latexCommandInput(_that);case CommandLayoutKind_Other():
 return other(_that);}
 }
 /// A variant of `map` that fallback to returning `null`.
@@ -119,7 +121,7 @@ return other(_that);}
 /// }
 /// ```
 
-@optionalTypeArgs TResult? mapOrNull<TResult extends Object?>({TResult? Function( CommandLayoutKind_Frac value)?  frac,TResult? Function( CommandLayoutKind_Sqrt value)?  sqrt,TResult? Function( CommandLayoutKind_NthRoot value)?  nthRoot,TResult? Function( CommandLayoutKind_Sup value)?  sup,TResult? Function( CommandLayoutKind_Sub value)?  sub,TResult? Function( CommandLayoutKind_SupSub value)?  supSub,TResult? Function( CommandLayoutKind_Overline value)?  overline,TResult? Function( CommandLayoutKind_Underline value)?  underline,TResult? Function( CommandLayoutKind_LeftRight value)?  leftRight,TResult? Function( CommandLayoutKind_SumLike value)?  sumLike,TResult? Function( CommandLayoutKind_Matrix value)?  matrix,TResult? Function( CommandLayoutKind_Text value)?  text,TResult? Function( CommandLayoutKind_Other value)?  other,}){
+@optionalTypeArgs TResult? mapOrNull<TResult extends Object?>({TResult? Function( CommandLayoutKind_Frac value)?  frac,TResult? Function( CommandLayoutKind_Sqrt value)?  sqrt,TResult? Function( CommandLayoutKind_NthRoot value)?  nthRoot,TResult? Function( CommandLayoutKind_Sup value)?  sup,TResult? Function( CommandLayoutKind_Sub value)?  sub,TResult? Function( CommandLayoutKind_SupSub value)?  supSub,TResult? Function( CommandLayoutKind_Overline value)?  overline,TResult? Function( CommandLayoutKind_Underline value)?  underline,TResult? Function( CommandLayoutKind_LeftRight value)?  leftRight,TResult? Function( CommandLayoutKind_SumLike value)?  sumLike,TResult? Function( CommandLayoutKind_Matrix value)?  matrix,TResult? Function( CommandLayoutKind_Text value)?  text,TResult? Function( CommandLayoutKind_LatexCommandInput value)?  latexCommandInput,TResult? Function( CommandLayoutKind_Other value)?  other,}){
 final _that = this;
 switch (_that) {
 case CommandLayoutKind_Frac() when frac != null:
@@ -134,7 +136,8 @@ return underline(_that);case CommandLayoutKind_LeftRight() when leftRight != nul
 return leftRight(_that);case CommandLayoutKind_SumLike() when sumLike != null:
 return sumLike(_that);case CommandLayoutKind_Matrix() when matrix != null:
 return matrix(_that);case CommandLayoutKind_Text() when text != null:
-return text(_that);case CommandLayoutKind_Other() when other != null:
+return text(_that);case CommandLayoutKind_LatexCommandInput() when latexCommandInput != null:
+return latexCommandInput(_that);case CommandLayoutKind_Other() when other != null:
 return other(_that);case _:
   return null;
 
@@ -152,7 +155,7 @@ return other(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>({TResult Function()?  frac,TResult Function()?  sqrt,TResult Function()?  nthRoot,TResult Function()?  sup,TResult Function()?  sub,TResult Function()?  supSub,TResult Function()?  overline,TResult Function()?  underline,TResult Function()?  leftRight,TResult Function()?  sumLike,TResult Function( int rows,  int cols)?  matrix,TResult Function()?  text,TResult Function()?  other,required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>({TResult Function()?  frac,TResult Function()?  sqrt,TResult Function()?  nthRoot,TResult Function()?  sup,TResult Function()?  sub,TResult Function()?  supSub,TResult Function()?  overline,TResult Function()?  underline,TResult Function()?  leftRight,TResult Function()?  sumLike,TResult Function( int rows,  int cols)?  matrix,TResult Function()?  text,TResult Function( String text)?  latexCommandInput,TResult Function()?  other,required TResult orElse(),}) {final _that = this;
 switch (_that) {
 case CommandLayoutKind_Frac() when frac != null:
 return frac();case CommandLayoutKind_Sqrt() when sqrt != null:
@@ -166,7 +169,8 @@ return underline();case CommandLayoutKind_LeftRight() when leftRight != null:
 return leftRight();case CommandLayoutKind_SumLike() when sumLike != null:
 return sumLike();case CommandLayoutKind_Matrix() when matrix != null:
 return matrix(_that.rows,_that.cols);case CommandLayoutKind_Text() when text != null:
-return text();case CommandLayoutKind_Other() when other != null:
+return text();case CommandLayoutKind_LatexCommandInput() when latexCommandInput != null:
+return latexCommandInput(_that.text);case CommandLayoutKind_Other() when other != null:
 return other();case _:
   return orElse();
 
@@ -185,7 +189,7 @@ return other();case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>({required TResult Function()  frac,required TResult Function()  sqrt,required TResult Function()  nthRoot,required TResult Function()  sup,required TResult Function()  sub,required TResult Function()  supSub,required TResult Function()  overline,required TResult Function()  underline,required TResult Function()  leftRight,required TResult Function()  sumLike,required TResult Function( int rows,  int cols)  matrix,required TResult Function()  text,required TResult Function()  other,}) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>({required TResult Function()  frac,required TResult Function()  sqrt,required TResult Function()  nthRoot,required TResult Function()  sup,required TResult Function()  sub,required TResult Function()  supSub,required TResult Function()  overline,required TResult Function()  underline,required TResult Function()  leftRight,required TResult Function()  sumLike,required TResult Function( int rows,  int cols)  matrix,required TResult Function()  text,required TResult Function( String text)  latexCommandInput,required TResult Function()  other,}) {final _that = this;
 switch (_that) {
 case CommandLayoutKind_Frac():
 return frac();case CommandLayoutKind_Sqrt():
@@ -199,7 +203,8 @@ return underline();case CommandLayoutKind_LeftRight():
 return leftRight();case CommandLayoutKind_SumLike():
 return sumLike();case CommandLayoutKind_Matrix():
 return matrix(_that.rows,_that.cols);case CommandLayoutKind_Text():
-return text();case CommandLayoutKind_Other():
+return text();case CommandLayoutKind_LatexCommandInput():
+return latexCommandInput(_that.text);case CommandLayoutKind_Other():
 return other();}
 }
 /// A variant of `when` that fallback to returning `null`
@@ -214,7 +219,7 @@ return other();}
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>({TResult? Function()?  frac,TResult? Function()?  sqrt,TResult? Function()?  nthRoot,TResult? Function()?  sup,TResult? Function()?  sub,TResult? Function()?  supSub,TResult? Function()?  overline,TResult? Function()?  underline,TResult? Function()?  leftRight,TResult? Function()?  sumLike,TResult? Function( int rows,  int cols)?  matrix,TResult? Function()?  text,TResult? Function()?  other,}) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>({TResult? Function()?  frac,TResult? Function()?  sqrt,TResult? Function()?  nthRoot,TResult? Function()?  sup,TResult? Function()?  sub,TResult? Function()?  supSub,TResult? Function()?  overline,TResult? Function()?  underline,TResult? Function()?  leftRight,TResult? Function()?  sumLike,TResult? Function( int rows,  int cols)?  matrix,TResult? Function()?  text,TResult? Function( String text)?  latexCommandInput,TResult? Function()?  other,}) {final _that = this;
 switch (_that) {
 case CommandLayoutKind_Frac() when frac != null:
 return frac();case CommandLayoutKind_Sqrt() when sqrt != null:
@@ -228,7 +233,8 @@ return underline();case CommandLayoutKind_LeftRight() when leftRight != null:
 return leftRight();case CommandLayoutKind_SumLike() when sumLike != null:
 return sumLike();case CommandLayoutKind_Matrix() when matrix != null:
 return matrix(_that.rows,_that.cols);case CommandLayoutKind_Text() when text != null:
-return text();case CommandLayoutKind_Other() when other != null:
+return text();case CommandLayoutKind_LatexCommandInput() when latexCommandInput != null:
+return latexCommandInput(_that.text);case CommandLayoutKind_Other() when other != null:
 return other();case _:
   return null;
 
@@ -660,6 +666,72 @@ String toString() {
 /// @nodoc
 
 
+class CommandLayoutKind_LatexCommandInput extends CommandLayoutKind {
+  const CommandLayoutKind_LatexCommandInput({required this.text}): super._();
+  
+
+ final  String text;
+
+/// Create a copy of CommandLayoutKind
+/// with the given fields replaced by the non-null parameter values.
+@JsonKey(includeFromJson: false, includeToJson: false)
+@pragma('vm:prefer-inline')
+$CommandLayoutKind_LatexCommandInputCopyWith<CommandLayoutKind_LatexCommandInput> get copyWith => _$CommandLayoutKind_LatexCommandInputCopyWithImpl<CommandLayoutKind_LatexCommandInput>(this, _$identity);
+
+
+
+@override
+bool operator ==(Object other) {
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is CommandLayoutKind_LatexCommandInput&&(identical(other.text, text) || other.text == text));
+}
+
+
+@override
+int get hashCode => Object.hash(runtimeType,text);
+
+@override
+String toString() {
+  return 'CommandLayoutKind.latexCommandInput(text: $text)';
+}
+
+
+}
+
+/// @nodoc
+abstract mixin class $CommandLayoutKind_LatexCommandInputCopyWith<$Res> implements $CommandLayoutKindCopyWith<$Res> {
+  factory $CommandLayoutKind_LatexCommandInputCopyWith(CommandLayoutKind_LatexCommandInput value, $Res Function(CommandLayoutKind_LatexCommandInput) _then) = _$CommandLayoutKind_LatexCommandInputCopyWithImpl;
+@useResult
+$Res call({
+ String text
+});
+
+
+
+
+}
+/// @nodoc
+class _$CommandLayoutKind_LatexCommandInputCopyWithImpl<$Res>
+    implements $CommandLayoutKind_LatexCommandInputCopyWith<$Res> {
+  _$CommandLayoutKind_LatexCommandInputCopyWithImpl(this._self, this._then);
+
+  final CommandLayoutKind_LatexCommandInput _self;
+  final $Res Function(CommandLayoutKind_LatexCommandInput) _then;
+
+/// Create a copy of CommandLayoutKind
+/// with the given fields replaced by the non-null parameter values.
+@pragma('vm:prefer-inline') $Res call({Object? text = null,}) {
+  return _then(CommandLayoutKind_LatexCommandInput(
+text: null == text ? _self.text : text // ignore: cast_nullable_to_non_nullable
+as String,
+  ));
+}
+
+
+}
+
+/// @nodoc
+
+
 class CommandLayoutKind_Other extends CommandLayoutKind {
   const CommandLayoutKind_Other(): super._();
   
@@ -692,7 +764,8 @@ String toString() {
 /// @nodoc
 mixin _$NodeLayout {
 
- int get nodeId; double get width; double get height; double get depth;
+ int get nodeId; double get width; double get height; double get depth;/// Leftmost x-coordinate (em) of this node's glyphs.
+ double get leftX;
 /// Create a copy of NodeLayout
 /// with the given fields replaced by the non-null parameter values.
 @JsonKey(includeFromJson: false, includeToJson: false)
@@ -703,16 +776,16 @@ $NodeLayoutCopyWith<NodeLayout> get copyWith => _$NodeLayoutCopyWithImpl<NodeLay
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is NodeLayout&&(identical(other.nodeId, nodeId) || other.nodeId == nodeId)&&(identical(other.width, width) || other.width == width)&&(identical(other.height, height) || other.height == height)&&(identical(other.depth, depth) || other.depth == depth));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is NodeLayout&&(identical(other.nodeId, nodeId) || other.nodeId == nodeId)&&(identical(other.width, width) || other.width == width)&&(identical(other.height, height) || other.height == height)&&(identical(other.depth, depth) || other.depth == depth)&&(identical(other.leftX, leftX) || other.leftX == leftX));
 }
 
 
 @override
-int get hashCode => Object.hash(runtimeType,nodeId,width,height,depth);
+int get hashCode => Object.hash(runtimeType,nodeId,width,height,depth,leftX);
 
 @override
 String toString() {
-  return 'NodeLayout(nodeId: $nodeId, width: $width, height: $height, depth: $depth)';
+  return 'NodeLayout(nodeId: $nodeId, width: $width, height: $height, depth: $depth, leftX: $leftX)';
 }
 
 
@@ -723,7 +796,7 @@ abstract mixin class $NodeLayoutCopyWith<$Res>  {
   factory $NodeLayoutCopyWith(NodeLayout value, $Res Function(NodeLayout) _then) = _$NodeLayoutCopyWithImpl;
 @useResult
 $Res call({
- int nodeId, double width, double height, double depth
+ int nodeId, double width, double height, double depth, double leftX
 });
 
 
@@ -740,12 +813,13 @@ class _$NodeLayoutCopyWithImpl<$Res>
 
 /// Create a copy of NodeLayout
 /// with the given fields replaced by the non-null parameter values.
-@pragma('vm:prefer-inline') @override $Res call({Object? nodeId = null,Object? width = null,Object? height = null,Object? depth = null,}) {
+@pragma('vm:prefer-inline') @override $Res call({Object? nodeId = null,Object? width = null,Object? height = null,Object? depth = null,Object? leftX = null,}) {
   return _then(_self.copyWith(
 nodeId: null == nodeId ? _self.nodeId : nodeId // ignore: cast_nullable_to_non_nullable
 as int,width: null == width ? _self.width : width // ignore: cast_nullable_to_non_nullable
 as double,height: null == height ? _self.height : height // ignore: cast_nullable_to_non_nullable
 as double,depth: null == depth ? _self.depth : depth // ignore: cast_nullable_to_non_nullable
+as double,leftX: null == leftX ? _self.leftX : leftX // ignore: cast_nullable_to_non_nullable
 as double,
   ));
 }
@@ -831,11 +905,11 @@ return command(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>({TResult Function( int nodeId,  List<MathNode> glyphs,  double width,  double height,  double depth)?  leaf,TResult Function( int nodeId,  CommandLayoutKind kind,  double width,  double height,  double depth,  List<BlockLayout> childBlocks,  List<MathNode> decorations)?  command,required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>({TResult Function( int nodeId,  List<MathNode> glyphs,  double width,  double height,  double depth,  double leftX)?  leaf,TResult Function( int nodeId,  CommandLayoutKind kind,  double width,  double height,  double depth,  double leftX,  List<BlockLayout> childBlocks,  List<MathNode> decorations)?  command,required TResult orElse(),}) {final _that = this;
 switch (_that) {
 case NodeLayout_Leaf() when leaf != null:
-return leaf(_that.nodeId,_that.glyphs,_that.width,_that.height,_that.depth);case NodeLayout_Command() when command != null:
-return command(_that.nodeId,_that.kind,_that.width,_that.height,_that.depth,_that.childBlocks,_that.decorations);case _:
+return leaf(_that.nodeId,_that.glyphs,_that.width,_that.height,_that.depth,_that.leftX);case NodeLayout_Command() when command != null:
+return command(_that.nodeId,_that.kind,_that.width,_that.height,_that.depth,_that.leftX,_that.childBlocks,_that.decorations);case _:
   return orElse();
 
 }
@@ -853,11 +927,11 @@ return command(_that.nodeId,_that.kind,_that.width,_that.height,_that.depth,_tha
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>({required TResult Function( int nodeId,  List<MathNode> glyphs,  double width,  double height,  double depth)  leaf,required TResult Function( int nodeId,  CommandLayoutKind kind,  double width,  double height,  double depth,  List<BlockLayout> childBlocks,  List<MathNode> decorations)  command,}) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>({required TResult Function( int nodeId,  List<MathNode> glyphs,  double width,  double height,  double depth,  double leftX)  leaf,required TResult Function( int nodeId,  CommandLayoutKind kind,  double width,  double height,  double depth,  double leftX,  List<BlockLayout> childBlocks,  List<MathNode> decorations)  command,}) {final _that = this;
 switch (_that) {
 case NodeLayout_Leaf():
-return leaf(_that.nodeId,_that.glyphs,_that.width,_that.height,_that.depth);case NodeLayout_Command():
-return command(_that.nodeId,_that.kind,_that.width,_that.height,_that.depth,_that.childBlocks,_that.decorations);}
+return leaf(_that.nodeId,_that.glyphs,_that.width,_that.height,_that.depth,_that.leftX);case NodeLayout_Command():
+return command(_that.nodeId,_that.kind,_that.width,_that.height,_that.depth,_that.leftX,_that.childBlocks,_that.decorations);}
 }
 /// A variant of `when` that fallback to returning `null`
 ///
@@ -871,11 +945,11 @@ return command(_that.nodeId,_that.kind,_that.width,_that.height,_that.depth,_tha
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>({TResult? Function( int nodeId,  List<MathNode> glyphs,  double width,  double height,  double depth)?  leaf,TResult? Function( int nodeId,  CommandLayoutKind kind,  double width,  double height,  double depth,  List<BlockLayout> childBlocks,  List<MathNode> decorations)?  command,}) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>({TResult? Function( int nodeId,  List<MathNode> glyphs,  double width,  double height,  double depth,  double leftX)?  leaf,TResult? Function( int nodeId,  CommandLayoutKind kind,  double width,  double height,  double depth,  double leftX,  List<BlockLayout> childBlocks,  List<MathNode> decorations)?  command,}) {final _that = this;
 switch (_that) {
 case NodeLayout_Leaf() when leaf != null:
-return leaf(_that.nodeId,_that.glyphs,_that.width,_that.height,_that.depth);case NodeLayout_Command() when command != null:
-return command(_that.nodeId,_that.kind,_that.width,_that.height,_that.depth,_that.childBlocks,_that.decorations);case _:
+return leaf(_that.nodeId,_that.glyphs,_that.width,_that.height,_that.depth,_that.leftX);case NodeLayout_Command() when command != null:
+return command(_that.nodeId,_that.kind,_that.width,_that.height,_that.depth,_that.leftX,_that.childBlocks,_that.decorations);case _:
   return null;
 
 }
@@ -887,7 +961,7 @@ return command(_that.nodeId,_that.kind,_that.width,_that.height,_that.depth,_tha
 
 
 class NodeLayout_Leaf extends NodeLayout {
-  const NodeLayout_Leaf({required this.nodeId, required final  List<MathNode> glyphs, required this.width, required this.height, required this.depth}): _glyphs = glyphs,super._();
+  const NodeLayout_Leaf({required this.nodeId, required final  List<MathNode> glyphs, required this.width, required this.height, required this.depth, required this.leftX}): _glyphs = glyphs,super._();
   
 
 @override final  int nodeId;
@@ -901,6 +975,8 @@ class NodeLayout_Leaf extends NodeLayout {
 @override final  double width;
 @override final  double height;
 @override final  double depth;
+/// Leftmost x-coordinate (em) of this node's glyphs.
+@override final  double leftX;
 
 /// Create a copy of NodeLayout
 /// with the given fields replaced by the non-null parameter values.
@@ -912,16 +988,16 @@ $NodeLayout_LeafCopyWith<NodeLayout_Leaf> get copyWith => _$NodeLayout_LeafCopyW
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is NodeLayout_Leaf&&(identical(other.nodeId, nodeId) || other.nodeId == nodeId)&&const DeepCollectionEquality().equals(other._glyphs, _glyphs)&&(identical(other.width, width) || other.width == width)&&(identical(other.height, height) || other.height == height)&&(identical(other.depth, depth) || other.depth == depth));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is NodeLayout_Leaf&&(identical(other.nodeId, nodeId) || other.nodeId == nodeId)&&const DeepCollectionEquality().equals(other._glyphs, _glyphs)&&(identical(other.width, width) || other.width == width)&&(identical(other.height, height) || other.height == height)&&(identical(other.depth, depth) || other.depth == depth)&&(identical(other.leftX, leftX) || other.leftX == leftX));
 }
 
 
 @override
-int get hashCode => Object.hash(runtimeType,nodeId,const DeepCollectionEquality().hash(_glyphs),width,height,depth);
+int get hashCode => Object.hash(runtimeType,nodeId,const DeepCollectionEquality().hash(_glyphs),width,height,depth,leftX);
 
 @override
 String toString() {
-  return 'NodeLayout.leaf(nodeId: $nodeId, glyphs: $glyphs, width: $width, height: $height, depth: $depth)';
+  return 'NodeLayout.leaf(nodeId: $nodeId, glyphs: $glyphs, width: $width, height: $height, depth: $depth, leftX: $leftX)';
 }
 
 
@@ -932,7 +1008,7 @@ abstract mixin class $NodeLayout_LeafCopyWith<$Res> implements $NodeLayoutCopyWi
   factory $NodeLayout_LeafCopyWith(NodeLayout_Leaf value, $Res Function(NodeLayout_Leaf) _then) = _$NodeLayout_LeafCopyWithImpl;
 @override @useResult
 $Res call({
- int nodeId, List<MathNode> glyphs, double width, double height, double depth
+ int nodeId, List<MathNode> glyphs, double width, double height, double depth, double leftX
 });
 
 
@@ -949,13 +1025,14 @@ class _$NodeLayout_LeafCopyWithImpl<$Res>
 
 /// Create a copy of NodeLayout
 /// with the given fields replaced by the non-null parameter values.
-@override @pragma('vm:prefer-inline') $Res call({Object? nodeId = null,Object? glyphs = null,Object? width = null,Object? height = null,Object? depth = null,}) {
+@override @pragma('vm:prefer-inline') $Res call({Object? nodeId = null,Object? glyphs = null,Object? width = null,Object? height = null,Object? depth = null,Object? leftX = null,}) {
   return _then(NodeLayout_Leaf(
 nodeId: null == nodeId ? _self.nodeId : nodeId // ignore: cast_nullable_to_non_nullable
 as int,glyphs: null == glyphs ? _self._glyphs : glyphs // ignore: cast_nullable_to_non_nullable
 as List<MathNode>,width: null == width ? _self.width : width // ignore: cast_nullable_to_non_nullable
 as double,height: null == height ? _self.height : height // ignore: cast_nullable_to_non_nullable
 as double,depth: null == depth ? _self.depth : depth // ignore: cast_nullable_to_non_nullable
+as double,leftX: null == leftX ? _self.leftX : leftX // ignore: cast_nullable_to_non_nullable
 as double,
   ));
 }
@@ -967,7 +1044,7 @@ as double,
 
 
 class NodeLayout_Command extends NodeLayout {
-  const NodeLayout_Command({required this.nodeId, required this.kind, required this.width, required this.height, required this.depth, required final  List<BlockLayout> childBlocks, required final  List<MathNode> decorations}): _childBlocks = childBlocks,_decorations = decorations,super._();
+  const NodeLayout_Command({required this.nodeId, required this.kind, required this.width, required this.height, required this.depth, required this.leftX, required final  List<BlockLayout> childBlocks, required final  List<MathNode> decorations}): _childBlocks = childBlocks,_decorations = decorations,super._();
   
 
 @override final  int nodeId;
@@ -975,6 +1052,8 @@ class NodeLayout_Command extends NodeLayout {
 @override final  double width;
 @override final  double height;
 @override final  double depth;
+/// Leftmost x-coordinate (em) of this node's glyphs.
+@override final  double leftX;
  final  List<BlockLayout> _childBlocks;
  List<BlockLayout> get childBlocks {
   if (_childBlocks is EqualUnmodifiableListView) return _childBlocks;
@@ -1000,16 +1079,16 @@ $NodeLayout_CommandCopyWith<NodeLayout_Command> get copyWith => _$NodeLayout_Com
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is NodeLayout_Command&&(identical(other.nodeId, nodeId) || other.nodeId == nodeId)&&(identical(other.kind, kind) || other.kind == kind)&&(identical(other.width, width) || other.width == width)&&(identical(other.height, height) || other.height == height)&&(identical(other.depth, depth) || other.depth == depth)&&const DeepCollectionEquality().equals(other._childBlocks, _childBlocks)&&const DeepCollectionEquality().equals(other._decorations, _decorations));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is NodeLayout_Command&&(identical(other.nodeId, nodeId) || other.nodeId == nodeId)&&(identical(other.kind, kind) || other.kind == kind)&&(identical(other.width, width) || other.width == width)&&(identical(other.height, height) || other.height == height)&&(identical(other.depth, depth) || other.depth == depth)&&(identical(other.leftX, leftX) || other.leftX == leftX)&&const DeepCollectionEquality().equals(other._childBlocks, _childBlocks)&&const DeepCollectionEquality().equals(other._decorations, _decorations));
 }
 
 
 @override
-int get hashCode => Object.hash(runtimeType,nodeId,kind,width,height,depth,const DeepCollectionEquality().hash(_childBlocks),const DeepCollectionEquality().hash(_decorations));
+int get hashCode => Object.hash(runtimeType,nodeId,kind,width,height,depth,leftX,const DeepCollectionEquality().hash(_childBlocks),const DeepCollectionEquality().hash(_decorations));
 
 @override
 String toString() {
-  return 'NodeLayout.command(nodeId: $nodeId, kind: $kind, width: $width, height: $height, depth: $depth, childBlocks: $childBlocks, decorations: $decorations)';
+  return 'NodeLayout.command(nodeId: $nodeId, kind: $kind, width: $width, height: $height, depth: $depth, leftX: $leftX, childBlocks: $childBlocks, decorations: $decorations)';
 }
 
 
@@ -1020,7 +1099,7 @@ abstract mixin class $NodeLayout_CommandCopyWith<$Res> implements $NodeLayoutCop
   factory $NodeLayout_CommandCopyWith(NodeLayout_Command value, $Res Function(NodeLayout_Command) _then) = _$NodeLayout_CommandCopyWithImpl;
 @override @useResult
 $Res call({
- int nodeId, CommandLayoutKind kind, double width, double height, double depth, List<BlockLayout> childBlocks, List<MathNode> decorations
+ int nodeId, CommandLayoutKind kind, double width, double height, double depth, double leftX, List<BlockLayout> childBlocks, List<MathNode> decorations
 });
 
 
@@ -1037,13 +1116,14 @@ class _$NodeLayout_CommandCopyWithImpl<$Res>
 
 /// Create a copy of NodeLayout
 /// with the given fields replaced by the non-null parameter values.
-@override @pragma('vm:prefer-inline') $Res call({Object? nodeId = null,Object? kind = null,Object? width = null,Object? height = null,Object? depth = null,Object? childBlocks = null,Object? decorations = null,}) {
+@override @pragma('vm:prefer-inline') $Res call({Object? nodeId = null,Object? kind = null,Object? width = null,Object? height = null,Object? depth = null,Object? leftX = null,Object? childBlocks = null,Object? decorations = null,}) {
   return _then(NodeLayout_Command(
 nodeId: null == nodeId ? _self.nodeId : nodeId // ignore: cast_nullable_to_non_nullable
 as int,kind: null == kind ? _self.kind : kind // ignore: cast_nullable_to_non_nullable
 as CommandLayoutKind,width: null == width ? _self.width : width // ignore: cast_nullable_to_non_nullable
 as double,height: null == height ? _self.height : height // ignore: cast_nullable_to_non_nullable
 as double,depth: null == depth ? _self.depth : depth // ignore: cast_nullable_to_non_nullable
+as double,leftX: null == leftX ? _self.leftX : leftX // ignore: cast_nullable_to_non_nullable
 as double,childBlocks: null == childBlocks ? _self._childBlocks : childBlocks // ignore: cast_nullable_to_non_nullable
 as List<BlockLayout>,decorations: null == decorations ? _self._decorations : decorations // ignore: cast_nullable_to_non_nullable
 as List<MathNode>,
