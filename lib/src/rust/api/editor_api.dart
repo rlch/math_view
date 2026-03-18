@@ -10,7 +10,7 @@ import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 import 'package:freezed_annotation/freezed_annotation.dart' hide protected;
 part 'editor_api.freezed.dart';
 
-// These functions are ignored because they are not marked as `pub`: `build_snapshot`, `collect_leaf_ids`, `collect_leaves_in_block`, `convert_intent`, `empty_snapshot`, `next_id`, `resolve_tap_block`, `with_registry`
+// These functions are ignored because they are not marked as `pub`: `build_snapshot`, `collect_leaf_ids`, `collect_leaves_in_block`, `convert_intent`, `empty_snapshot`, `next_id`, `resolve_tap_block`, `resolve_tap_cursor`, `with_registry`
 // These types are ignored because they are neither used by any `pub` functions nor (for structs and enums) marked `#[frb(unignore)]`: `EditorEntry`
 // These function are ignored because they are on traits that is not defined in current crate (put an empty `#[frb]` on it to unignore): `clone`, `clone`, `fmt`, `fmt`
 
@@ -20,6 +20,10 @@ String createEditor() => RustLib.instance.api.crateApiEditorApiCreateEditor();
 /// Create a math editor pre-populated with LaTeX. Returns an editor ID.
 String createEditorFromLatex({required String latex}) =>
     RustLib.instance.api.crateApiEditorApiCreateEditorFromLatex(latex: latex);
+
+/// Get the LaTeX of the current selection (for copy). Empty string if no selection.
+String getSelectedLatex({required String id}) =>
+    RustLib.instance.api.crateApiEditorApiGetSelectedLatex(id: id);
 
 /// Dispatch an intent and get back the new snapshot.
 EditorSnapshot dispatchEditor({
@@ -107,10 +111,28 @@ sealed class EditorIntent with _$EditorIntent {
   const factory EditorIntent.deleteForward() = EditorIntent_DeleteForward;
   const factory EditorIntent.setLatex({required String latex}) =
       EditorIntent_SetLatex;
+
+  /// Insert parsed LaTeX at cursor (paste).
+  const factory EditorIntent.insertLatex({required String latex}) =
+      EditorIntent_InsertLatex;
   const factory EditorIntent.tapBlock({
     required int blockId,
     required int caretIndex,
   }) = EditorIntent_TapBlock;
+
+  /// Begin drag selection: set anchor and cursor.
+  const factory EditorIntent.dragStart({
+    required int blockId,
+    required int caretIndex,
+  }) = EditorIntent_DragStart;
+
+  /// Continue drag selection: move cursor, keep anchor.
+  const factory EditorIntent.dragUpdate({
+    required int blockId,
+    required int caretIndex,
+  }) = EditorIntent_DragUpdate;
+  const factory EditorIntent.undo() = EditorIntent_Undo;
+  const factory EditorIntent.redo() = EditorIntent_Redo;
 }
 
 /// Snapshot of the editor state, returned after every dispatch.

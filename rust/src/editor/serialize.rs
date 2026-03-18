@@ -10,6 +10,15 @@ pub fn serialize_single_node(arena: &Arena, node_id: NodeId) -> String {
     out
 }
 
+/// Serialize a list of nodes to LaTeX (for copy/clipboard).
+pub fn serialize_nodes(arena: &Arena, nodes: &[NodeId]) -> String {
+    let mut out = String::new();
+    for &nid in nodes {
+        arena.serialize_node_inner(nid, &mut out, false);
+    }
+    out
+}
+
 /// Approximate width of one character in the command input box (em units).
 const COMMAND_INPUT_CHAR_WIDTH: f64 = 0.56;
 
@@ -45,7 +54,7 @@ impl Arena {
         }
     }
 
-    fn serialize_node_inner(&self, node_id: NodeId, out: &mut String, for_render: bool) {
+    pub(crate) fn serialize_node_inner(&self, node_id: NodeId, out: &mut String, for_render: bool) {
         let n = self.node(node_id);
         match &n.kind {
             NodeKind::Symbol { text, .. } => {
@@ -225,9 +234,27 @@ impl Arena {
                 }
             }
             NodeKind::OperatorName => {
-                out.push_str("\\operatorname{");
-                self.serialize_block_inner(n.blocks[0], out, for_render);
-                out.push('}');
+                // Collect the body text to check for built-in shorthand
+                let mut body = String::new();
+                self.serialize_block_inner(n.blocks[0], &mut body, for_render);
+                // Built-in operator names that have \name shorthand in LaTeX
+                const BUILTIN_OPS: &[&str] = &[
+                    "arccos", "arcsin", "arctan", "arg", "cos", "cosh",
+                    "cot", "coth", "csc", "csch", "deg", "det", "dim",
+                    "exp", "gcd", "hom", "inf", "ker", "lg", "lim",
+                    "liminf", "limsup", "ln", "log", "max", "min",
+                    "mod", "Pr", "sec", "sech", "sin", "sinh", "sup",
+                    "tan", "tanh",
+                ];
+                if BUILTIN_OPS.contains(&body.as_str()) {
+                    out.push('\\');
+                    out.push_str(&body);
+                    out.push(' ');
+                } else {
+                    out.push_str("\\operatorname{");
+                    out.push_str(&body);
+                    out.push('}');
+                }
             }
             NodeKind::Raw(latex) => {
                 out.push_str(latex);

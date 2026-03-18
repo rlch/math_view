@@ -38,7 +38,7 @@ flutter_rust_bridge::frb_generated_boilerplate!(
     default_rust_auto_opaque = RustAutoOpaqueMoi,
 );
 pub(crate) const FLUTTER_RUST_BRIDGE_CODEGEN_VERSION: &str = "2.11.1";
-pub(crate) const FLUTTER_RUST_BRIDGE_CODEGEN_CONTENT_HASH: i32 = 97078151;
+pub(crate) const FLUTTER_RUST_BRIDGE_CODEGEN_CONTENT_HASH: i32 = 1763471870;
 
 // Section: executor
 
@@ -204,6 +204,37 @@ fn wire__crate__api__editor_api__get_editor_snapshot_impl(
                     api_id,
                     api_display_mode,
                 ))?;
+                Ok(output_ok)
+            })())
+        },
+    )
+}
+fn wire__crate__api__editor_api__get_selected_latex_impl(
+    ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
+    rust_vec_len_: i32,
+    data_len_: i32,
+) -> flutter_rust_bridge::for_generated::WireSyncRust2DartSse {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_sync::<flutter_rust_bridge::for_generated::SseCodec, _>(
+        flutter_rust_bridge::for_generated::TaskInfo {
+            debug_name: "get_selected_latex",
+            port: None,
+            mode: flutter_rust_bridge::for_generated::FfiCallMode::Sync,
+        },
+        move || {
+            let message = unsafe {
+                flutter_rust_bridge::for_generated::Dart2RustMessageSse::from_wire(
+                    ptr_,
+                    rust_vec_len_,
+                    data_len_,
+                )
+            };
+            let mut deserializer =
+                flutter_rust_bridge::for_generated::SseDeserializer::new(message);
+            let api_id = <String>::sse_decode(&mut deserializer);
+            deserializer.end();
+            transform_result_sse::<_, ()>((move || {
+                let output_ok =
+                    Result::<_, ()>::Ok(crate::api::editor_api::get_selected_latex(api_id))?;
                 Ok(output_ok)
             })())
         },
@@ -554,12 +585,38 @@ impl SseDecode for crate::api::editor_api::EditorIntent {
                 return crate::api::editor_api::EditorIntent::SetLatex { latex: var_latex };
             }
             36 => {
+                let mut var_latex = <String>::sse_decode(deserializer);
+                return crate::api::editor_api::EditorIntent::InsertLatex { latex: var_latex };
+            }
+            37 => {
                 let mut var_blockId = <u32>::sse_decode(deserializer);
                 let mut var_caretIndex = <u32>::sse_decode(deserializer);
                 return crate::api::editor_api::EditorIntent::TapBlock {
                     block_id: var_blockId,
                     caret_index: var_caretIndex,
                 };
+            }
+            38 => {
+                let mut var_blockId = <u32>::sse_decode(deserializer);
+                let mut var_caretIndex = <u32>::sse_decode(deserializer);
+                return crate::api::editor_api::EditorIntent::DragStart {
+                    block_id: var_blockId,
+                    caret_index: var_caretIndex,
+                };
+            }
+            39 => {
+                let mut var_blockId = <u32>::sse_decode(deserializer);
+                let mut var_caretIndex = <u32>::sse_decode(deserializer);
+                return crate::api::editor_api::EditorIntent::DragUpdate {
+                    block_id: var_blockId,
+                    caret_index: var_caretIndex,
+                };
+            }
+            40 => {
+                return crate::api::editor_api::EditorIntent::Undo;
+            }
+            41 => {
+                return crate::api::editor_api::EditorIntent::Redo;
             }
             _ => {
                 unimplemented!("");
@@ -944,7 +1001,7 @@ fn pde_ffi_dispatcher_primary_impl(
 ) {
     // Codec=Pde (Serialization + dispatch), see doc to use other codecs
     match func_id {
-        6 => wire__crate__api__math_api__init_app_impl(port, ptr, rust_vec_len, data_len),
+        7 => wire__crate__api__math_api__init_app_impl(port, ptr, rust_vec_len, data_len),
         _ => unreachable!(),
     }
 }
@@ -964,8 +1021,9 @@ fn pde_ffi_dispatcher_sync_impl(
         }
         4 => wire__crate__api__editor_api__dispatch_editor_impl(ptr, rust_vec_len, data_len),
         5 => wire__crate__api__editor_api__get_editor_snapshot_impl(ptr, rust_vec_len, data_len),
-        7 => wire__crate__api__math_api__layout_math_impl(ptr, rust_vec_len, data_len),
-        8 => wire__crate__api__math_api__layout_math_tree_impl(ptr, rust_vec_len, data_len),
+        6 => wire__crate__api__editor_api__get_selected_latex_impl(ptr, rust_vec_len, data_len),
+        8 => wire__crate__api__math_api__layout_math_impl(ptr, rust_vec_len, data_len),
+        9 => wire__crate__api__math_api__layout_math_tree_impl(ptr, rust_vec_len, data_len),
         _ => unreachable!(),
     }
 }
@@ -1120,15 +1178,38 @@ impl flutter_rust_bridge::IntoDart for crate::api::editor_api::EditorIntent {
             crate::api::editor_api::EditorIntent::SetLatex { latex } => {
                 [35.into_dart(), latex.into_into_dart().into_dart()].into_dart()
             }
+            crate::api::editor_api::EditorIntent::InsertLatex { latex } => {
+                [36.into_dart(), latex.into_into_dart().into_dart()].into_dart()
+            }
             crate::api::editor_api::EditorIntent::TapBlock {
                 block_id,
                 caret_index,
             } => [
-                36.into_dart(),
+                37.into_dart(),
                 block_id.into_into_dart().into_dart(),
                 caret_index.into_into_dart().into_dart(),
             ]
             .into_dart(),
+            crate::api::editor_api::EditorIntent::DragStart {
+                block_id,
+                caret_index,
+            } => [
+                38.into_dart(),
+                block_id.into_into_dart().into_dart(),
+                caret_index.into_into_dart().into_dart(),
+            ]
+            .into_dart(),
+            crate::api::editor_api::EditorIntent::DragUpdate {
+                block_id,
+                caret_index,
+            } => [
+                39.into_dart(),
+                block_id.into_into_dart().into_dart(),
+                caret_index.into_into_dart().into_dart(),
+            ]
+            .into_dart(),
+            crate::api::editor_api::EditorIntent::Undo => [40.into_dart()].into_dart(),
+            crate::api::editor_api::EditorIntent::Redo => [41.into_dart()].into_dart(),
             _ => {
                 unimplemented!("");
             }
@@ -1626,13 +1707,39 @@ impl SseEncode for crate::api::editor_api::EditorIntent {
                 <i32>::sse_encode(35, serializer);
                 <String>::sse_encode(latex, serializer);
             }
+            crate::api::editor_api::EditorIntent::InsertLatex { latex } => {
+                <i32>::sse_encode(36, serializer);
+                <String>::sse_encode(latex, serializer);
+            }
             crate::api::editor_api::EditorIntent::TapBlock {
                 block_id,
                 caret_index,
             } => {
-                <i32>::sse_encode(36, serializer);
+                <i32>::sse_encode(37, serializer);
                 <u32>::sse_encode(block_id, serializer);
                 <u32>::sse_encode(caret_index, serializer);
+            }
+            crate::api::editor_api::EditorIntent::DragStart {
+                block_id,
+                caret_index,
+            } => {
+                <i32>::sse_encode(38, serializer);
+                <u32>::sse_encode(block_id, serializer);
+                <u32>::sse_encode(caret_index, serializer);
+            }
+            crate::api::editor_api::EditorIntent::DragUpdate {
+                block_id,
+                caret_index,
+            } => {
+                <i32>::sse_encode(39, serializer);
+                <u32>::sse_encode(block_id, serializer);
+                <u32>::sse_encode(caret_index, serializer);
+            }
+            crate::api::editor_api::EditorIntent::Undo => {
+                <i32>::sse_encode(40, serializer);
+            }
+            crate::api::editor_api::EditorIntent::Redo => {
+                <i32>::sse_encode(41, serializer);
             }
             _ => {
                 unimplemented!("");

@@ -51,9 +51,9 @@
 
 | # | Feature | MQ | MV | Notes |
 |---|---|---|---|---|
-| 1 | **`\` LaTeX command input** | ✅ | ❌ | Backslash opens command entry mode |
-| 2 | **`/` LiveFraction** | ✅ | ❌ | Wraps preceding content into numerator |
-| 7 | **Tab/Space to escape block** | ✅ | ❌ | Tab/Esc/Space exits current block |
+| 1 | **`\` LaTeX command input** | ✅ | ✅ | Backslash opens command entry mode |
+| 2 | **`/` LiveFraction** | ✅ | ✅ | Wraps preceding content into numerator |
+| 7 | **Tab/Space to escape block** | ✅ | ✅ | Space exits current block (EscapeRight) |
 | | Arrow key nav (L/R) | ✅ | ✅ | |
 | | Arrow key nav (Up/Down) | ✅ | ✅ | Fracs, sup/sub, sums, matrices |
 | | Home/End | ✅ | ✅ | |
@@ -62,7 +62,7 @@
 | | Ctrl+Backspace (word delete) | ✅ | ❌ | |
 | | Select All (Ctrl+A) | ✅ | ✅ | |
 | | Shift+Arrow selection | ✅ | ✅ | |
-| 9 | **Auto-subscript numerals** | ✅ | ❌ | `x2` → `x_2` |
+| 9 | **Auto-subscript numerals** | ✅ | ✅ | `x2` → `x_{2}`, not after operators |
 | | Smart unary/binary detection | ✅ | ❌ | |
 | | Cmd+/ for fraction | ❌ | 🟢 | |
 
@@ -70,20 +70,20 @@
 
 | # | Feature | MQ | MV | Notes |
 |---|---|---|---|---|
-| 3 | **Auto-detect `sin`, `cos`, `log`** | ✅ | ❌ | 70+ auto-operators |
+| 3 | **Auto-detect `sin`, `cos`, `log`** | ✅ | ✅ | 35+ auto-operators in `try_auto_operator` |
 | 3 | **Auto-parenthesization** | ✅ | ❌ | `sin(` auto-trigger |
-| 3 | **Configurable operator list** | ✅ | ❌ | |
-| 3 | **Auto-unitalicize** | ✅ | ❌ | |
+| 3 | **Configurable operator list** | ✅ | ❌ | Hardcoded list in MV |
+| 3 | **Auto-unitalicize** | ✅ | ✅ | Handled by OperatorName wrapping |
 
 ## Selection & Clipboard
 
 | # | Feature | MQ | MV | Notes |
 |---|---|---|---|---|
 | | Shift+Arrow selection | ✅ | ✅ | |
-| 6 | **Mouse drag selection** | ✅ | ❌ | |
-| 4 | **Copy** (LaTeX to clipboard) | ✅ | ❌ | |
-| 4 | **Cut** | ✅ | ❌ | |
-| 4 | **Paste** (LaTeX from clipboard) | ✅ | ❌ | |
+| 6 | **Mouse drag selection** | ✅ | ✅ | Pan gesture with hit-test resolution |
+| 4 | **Copy** (LaTeX to clipboard) | ✅ | ✅ | Ctrl/Cmd+C |
+| 4 | **Cut** | ✅ | ✅ | Ctrl/Cmd+X |
+| 4 | **Paste** (LaTeX from clipboard) | ✅ | ✅ | Ctrl/Cmd+V, root-level only |
 | 8 | **Cross-block selection** | ✅ | ❌ | MV limited to single block |
 | | Selection wrapping into command | ✅ | ✅ | |
 
@@ -91,15 +91,15 @@
 
 | # | Feature | MQ | MV | Notes |
 |---|---|---|---|---|
-| 5 | **Undo** (Ctrl+Z) | ⚠️ | ❌ | |
-| 5 | **Redo** (Ctrl+Shift+Z) | ⚠️ | ❌ | |
+| 5 | **Undo** (Ctrl+Z) | ⚠️ | ✅ | Snapshot-based, 100 levels |
+| 5 | **Redo** (Ctrl+Shift+Z) | ⚠️ | ✅ | Cleared on new edit |
 
 ## Mouse Interaction
 
 | Feature | MQ | MV | Notes |
 |---|---|---|---|
 | Click to position cursor | ✅ | ✅ | |
-| Click+drag to select | ✅ | ❌ | |
+| Click+drag to select | ✅ | ✅ | Pan gesture subsumes tap |
 
 ## Accessibility
 
@@ -123,12 +123,9 @@
 
 ## Priority Gaps
 
-1. **`\` LaTeX command input** — type `\frac`, `\alpha` via backslash
-2. **`/` LiveFraction** — natural fraction entry `1/2`
-3. **Auto-operator names** — `sin` → `\sin` recognition
-4. **Copy/Paste** — clipboard support
-5. **Undo/Redo** — history stack
-6. **Mouse drag selection**
-7. **Tab/Space block escape**
-8. **Cross-block selection**
-9. **Auto-subscript numerals** — `x2` → `x_2`
+1. **Cross-block selection** — selection spanning command boundaries
+2. **Smart unary/binary detection** — context-aware minus sign
+3. **Ctrl+Backspace word delete** — delete to operator/command boundary
+4. **Paste in nested blocks** — currently root-level only
+5. **Binomial** (`\binom`) — not supported
+6. **Accessibility** — ARIA/Mathspeak

@@ -68,7 +68,7 @@ class RustLib extends BaseEntrypoint<RustLibApi, RustLibApiImpl, RustLibWire> {
   String get codegenVersion => '2.11.1';
 
   @override
-  int get rustContentHash => 97078151;
+  int get rustContentHash => 1763471870;
 
   static const kDefaultExternalLibraryLoaderConfig =
       ExternalLibraryLoaderConfig(
@@ -96,6 +96,8 @@ abstract class RustLibApi extends BaseApi {
     required String id,
     required bool displayMode,
   });
+
+  String crateApiEditorApiGetSelectedLatex({required String id});
 
   Future<void> crateApiMathApiInitApp();
 
@@ -252,6 +254,29 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       );
 
   @override
+  String crateApiEditorApiGetSelectedLatex({required String id}) {
+    return handler.executeSync(
+      SyncTask(
+        callFfi: () {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          sse_encode_String(id, serializer);
+          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 6)!;
+        },
+        codec: SseCodec(
+          decodeSuccessData: sse_decode_String,
+          decodeErrorData: null,
+        ),
+        constMeta: kCrateApiEditorApiGetSelectedLatexConstMeta,
+        argValues: [id],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiEditorApiGetSelectedLatexConstMeta =>
+      const TaskConstMeta(debugName: "get_selected_latex", argNames: ["id"]);
+
+  @override
   Future<void> crateApiMathApiInitApp() {
     return handler.executeNormal(
       NormalTask(
@@ -260,7 +285,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 6,
+            funcId: 7,
             port: port_,
           );
         },
@@ -289,7 +314,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           final serializer = SseSerializer(generalizedFrbRustBinding);
           sse_encode_String(latex, serializer);
           sse_encode_bool(displayMode, serializer);
-          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 7)!;
+          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 8)!;
         },
         codec: SseCodec(
           decodeSuccessData: sse_decode_math_layout,
@@ -318,7 +343,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           final serializer = SseSerializer(generalizedFrbRustBinding);
           sse_encode_String(latex, serializer);
           sse_encode_bool(displayMode, serializer);
-          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 8)!;
+          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 9)!;
         },
         codec: SseCodec(
           decodeSuccessData: sse_decode_editor_layout,
@@ -526,10 +551,26 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       case 35:
         return EditorIntent_SetLatex(latex: dco_decode_String(raw[1]));
       case 36:
+        return EditorIntent_InsertLatex(latex: dco_decode_String(raw[1]));
+      case 37:
         return EditorIntent_TapBlock(
           blockId: dco_decode_u_32(raw[1]),
           caretIndex: dco_decode_u_32(raw[2]),
         );
+      case 38:
+        return EditorIntent_DragStart(
+          blockId: dco_decode_u_32(raw[1]),
+          caretIndex: dco_decode_u_32(raw[2]),
+        );
+      case 39:
+        return EditorIntent_DragUpdate(
+          blockId: dco_decode_u_32(raw[1]),
+          caretIndex: dco_decode_u_32(raw[2]),
+        );
+      case 40:
+        return EditorIntent_Undo();
+      case 41:
+        return EditorIntent_Redo();
       default:
         throw Exception("unreachable");
     }
@@ -970,12 +1011,33 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
         var var_latex = sse_decode_String(deserializer);
         return EditorIntent_SetLatex(latex: var_latex);
       case 36:
+        var var_latex = sse_decode_String(deserializer);
+        return EditorIntent_InsertLatex(latex: var_latex);
+      case 37:
         var var_blockId = sse_decode_u_32(deserializer);
         var var_caretIndex = sse_decode_u_32(deserializer);
         return EditorIntent_TapBlock(
           blockId: var_blockId,
           caretIndex: var_caretIndex,
         );
+      case 38:
+        var var_blockId = sse_decode_u_32(deserializer);
+        var var_caretIndex = sse_decode_u_32(deserializer);
+        return EditorIntent_DragStart(
+          blockId: var_blockId,
+          caretIndex: var_caretIndex,
+        );
+      case 39:
+        var var_blockId = sse_decode_u_32(deserializer);
+        var var_caretIndex = sse_decode_u_32(deserializer);
+        return EditorIntent_DragUpdate(
+          blockId: var_blockId,
+          caretIndex: var_caretIndex,
+        );
+      case 40:
+        return EditorIntent_Undo();
+      case 41:
+        return EditorIntent_Redo();
       default:
         throw UnimplementedError('');
     }
@@ -1490,13 +1552,34 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       case EditorIntent_SetLatex(latex: final latex):
         sse_encode_i_32(35, serializer);
         sse_encode_String(latex, serializer);
+      case EditorIntent_InsertLatex(latex: final latex):
+        sse_encode_i_32(36, serializer);
+        sse_encode_String(latex, serializer);
       case EditorIntent_TapBlock(
         blockId: final blockId,
         caretIndex: final caretIndex,
       ):
-        sse_encode_i_32(36, serializer);
+        sse_encode_i_32(37, serializer);
         sse_encode_u_32(blockId, serializer);
         sse_encode_u_32(caretIndex, serializer);
+      case EditorIntent_DragStart(
+        blockId: final blockId,
+        caretIndex: final caretIndex,
+      ):
+        sse_encode_i_32(38, serializer);
+        sse_encode_u_32(blockId, serializer);
+        sse_encode_u_32(caretIndex, serializer);
+      case EditorIntent_DragUpdate(
+        blockId: final blockId,
+        caretIndex: final caretIndex,
+      ):
+        sse_encode_i_32(39, serializer);
+        sse_encode_u_32(blockId, serializer);
+        sse_encode_u_32(caretIndex, serializer);
+      case EditorIntent_Undo():
+        sse_encode_i_32(40, serializer);
+      case EditorIntent_Redo():
+        sse_encode_i_32(41, serializer);
     }
   }
 

@@ -93,7 +93,7 @@ class _MathEditorState extends State<MathEditor> with TickerProviderStateMixin {
       _cursorBlink.stop();
       _cursorBlink.value = 0.0;
     }
-    setState(() {}); // Rebuild to update cursor visibility
+    setState(() {});
   }
 
   @override
@@ -112,9 +112,13 @@ class _MathEditorState extends State<MathEditor> with TickerProviderStateMixin {
       displayMode: widget.displayMode,
     );
     setState(() => _snapshot = snap);
-    _cursorBlink.forward(from: 1.0); // Reset blink on edit
+    _cursorBlink.forward(from: 1.0);
     widget.onChanged?.call(snap.latex);
   }
+
+  // ---------------------------------------------------------------------------
+  // Keyboard
+  // ---------------------------------------------------------------------------
 
   KeyEventResult _handleKey(FocusNode node, KeyEvent event) {
     if (event is! KeyDownEvent && event is! KeyRepeatEvent) {
@@ -155,6 +159,28 @@ class _MathEditorState extends State<MathEditor> with TickerProviderStateMixin {
 
       // Any other key cancels command input and falls through
       _dispatch(const EditorIntent.cancelCommandInput());
+    }
+
+    // --- Undo / Redo ---
+    if (meta && key == LogicalKeyboardKey.keyZ) {
+      _dispatch(shift
+          ? const EditorIntent.redo()
+          : const EditorIntent.undo());
+      return KeyEventResult.handled;
+    }
+
+    // --- Copy / Cut / Paste ---
+    if (meta && key == LogicalKeyboardKey.keyC) {
+      _copySelection();
+      return KeyEventResult.handled;
+    }
+    if (meta && key == LogicalKeyboardKey.keyX) {
+      _cutSelection();
+      return KeyEventResult.handled;
+    }
+    if (meta && key == LogicalKeyboardKey.keyV) {
+      _pasteFromClipboard();
+      return KeyEventResult.handled;
     }
 
     // Navigation
@@ -236,14 +262,39 @@ class _MathEditorState extends State<MathEditor> with TickerProviderStateMixin {
     return KeyEventResult.ignored;
   }
 
-  void _handleTapDown(TapDownDetails details) {
-    _focusNode.requestFocus();
-    _handleWidgetTreeTap(details.localPosition);
+  // ---------------------------------------------------------------------------
+  // Clipboard
+  // ---------------------------------------------------------------------------
+
+  void _copySelection() {
+    final latex = getSelectedLatex(id: _editorId);
+    if (latex.isNotEmpty) {
+      Clipboard.setData(ClipboardData(text: latex));
+    }
   }
 
-  void _handleWidgetTreeTap(Offset localPosition) {
+  void _cutSelection() {
+    _copySelection();
+    _dispatch(const EditorIntent.deleteBackward());
+  }
+
+  void _pasteFromClipboard() {
+    // Clipboard.getData is async; handle result in microtask
+    Clipboard.getData('text/plain').then((data) {
+      if (data?.text != null && data!.text!.isNotEmpty && mounted) {
+        _dispatch(EditorIntent.insertLatex(latex: data.text!));
+      }
+    });
+  }
+
+  // ---------------------------------------------------------------------------
+  // Pointer / Drag selection
+  // ---------------------------------------------------------------------------
+
+  /// Resolve a local widget position to (blockId, caretIndex) via hit testing.
+  ({int blockId, int caretIndex})? _resolvePosition(Offset localPosition) {
     final renderBox = context.findRenderObject() as RenderBox?;
-    if (renderBox == null) return;
+    if (renderBox == null) return null;
 
     final result = BoxHitTestResult();
     renderBox.hitTest(result, position: localPosition);
@@ -255,16 +306,38 @@ class _MathEditorState extends State<MathEditor> with TickerProviderStateMixin {
           renderBox.localToGlobal(localPosition),
         );
         final caretIndex = target.getCaretIndexForPoint(localPos);
-        _dispatch(EditorIntent.tapBlock(
-          blockId: target.blockId,
-          caretIndex: caretIndex,
-        ));
-        return;
+        return (blockId: target.blockId, caretIndex: caretIndex);
       }
     }
-
-    _dispatch(const EditorIntent.moveToEnd());
+    return null;
   }
+
+  void _onPanStart(DragStartDetails details) {
+    _focusNode.requestFocus();
+    final hit = _resolvePosition(details.localPosition);
+    if (hit != null) {
+      _dispatch(EditorIntent.dragStart(
+        blockId: hit.blockId,
+        caretIndex: hit.caretIndex,
+      ));
+    } else {
+      _dispatch(const EditorIntent.moveToEnd());
+    }
+  }
+
+  void _onPanUpdate(DragUpdateDetails details) {
+    final hit = _resolvePosition(details.localPosition);
+    if (hit != null) {
+      _dispatch(EditorIntent.dragUpdate(
+        blockId: hit.blockId,
+        caretIndex: hit.caretIndex,
+      ));
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  // Build
+  // ---------------------------------------------------------------------------
 
   @override
   Widget build(BuildContext context) {
@@ -276,7 +349,9 @@ class _MathEditorState extends State<MathEditor> with TickerProviderStateMixin {
         widget.selectionColor ?? cursorColor.withValues(alpha: 0.3);
 
     return GestureDetector(
-      onTapDown: _handleTapDown,
+      // Pan gestures subsume taps: a tap is onPanStart + onPanEnd with no update.
+      onPanStart: _onPanStart,
+      onPanUpdate: _onPanUpdate,
       child: Focus(
         focusNode: _focusNode,
         autofocus: widget.autofocus,

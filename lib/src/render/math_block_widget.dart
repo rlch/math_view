@@ -62,13 +62,14 @@ class MathBlockWidget extends StatelessWidget {
   }
 
   Widget _buildBlock(BlockLayout block) {
+    final blockFontScale = block.fontScale;
     final children = block.children
         .map((node) => AbsolutePosition(
               xEm: switch (node) {
                 NodeLayout_Leaf() => node.leftX,
                 NodeLayout_Command() => node.leftX,
               },
-              child: _buildNode(node),
+              child: _buildNode(node, fontScale: blockFontScale),
             ))
         .toList();
 
@@ -98,7 +99,7 @@ class MathBlockWidget extends StatelessWidget {
     return MathLine(fontSize: fontSize, children: children);
   }
 
-  Widget _buildNode(NodeLayout node) {
+  Widget _buildNode(NodeLayout node, {double fontScale = 1.0}) {
     switch (node) {
       case NodeLayout_Leaf():
         return MathLeaf(glyphs: node.glyphs, fontSize: fontSize, color: color);
@@ -108,7 +109,7 @@ class MathBlockWidget extends StatelessWidget {
           final lciKind = node.kind as CommandLayoutKind_LatexCommandInput;
           return LatexCommandInputWidget(
             text: lciKind.text,
-            fontSize: fontSize,
+            fontSize: fontSize * fontScale,
             cursorColor: cursorColor,
             cursorOpacity: cursorOpacity,
           );

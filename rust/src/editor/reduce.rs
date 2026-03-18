@@ -11,9 +11,13 @@ pub fn reduce(state: &mut State, intent: Intent) {
     match intent {
         Intent::InsertSymbol(ch) => {
             delete_selection(state);
-            state.arena.insert_symbol_at_cursor(&mut state.cursor, ch);
-            if ch.is_alphabetic() {
-                try_auto_operator(state);
+            if ch.is_ascii_digit() && try_auto_subscript(state, ch) {
+                // Auto-subscript handled the insertion
+            } else {
+                state.arena.insert_symbol_at_cursor(&mut state.cursor, ch);
+                if ch.is_alphabetic() {
+                    try_auto_operator(state);
+                }
             }
         }
         Intent::InsertCommand(cmd) => {
@@ -236,6 +240,72 @@ pub fn reduce(state: &mut State, intent: Intent) {
             state.selection = None;
             state.cursor = cursor;
         }
+        Intent::InsertLatex(latex) => {
+            delete_selection(state);
+            // Build the full LaTeX: existing content with pasted content spliced at cursor.
+            // Serialize current state, find cursor position, inject paste, re-import.
+            let before = {
+                let mut out = String::new();
+                // Serialize nodes before cursor
+                let block = state.arena.block(state.cursor.parent);
+                let mut cur = block.first;
+                while cur != state.cursor.right && cur.is_some() {
+                    let nid = cur.unwrap();
+                    state.arena.serialize_node_inner(nid, &mut out, false);
+                    cur = state.arena.node(nid).right;
+                }
+                out
+            };
+            let after = {
+                let mut out = String::new();
+                let mut cur = state.cursor.right;
+                while let Some(nid) = cur {
+                    state.arena.serialize_node_inner(nid, &mut out, false);
+                    cur = state.arena.node(nid).right;
+                }
+                out
+            };
+            // Only works at root level for now. For nested pastes, fall back to
+            // re-importing the entire expression.
+            if state.cursor.parent == state.arena.root {
+                let full = format!("{}{}{}", before, latex, after);
+                if let Ok(new_state) = convert::import_latex(&full) {
+                    state.arena = new_state.arena;
+                    // Position cursor after pasted content
+                    let target_len = before.len() + latex.len();
+                    let mut cur_len = 0;
+                    let mut cur = state.arena.block(state.arena.root).first;
+                    let mut last = None;
+                    while let Some(nid) = cur {
+                        let node_latex = crate::editor::serialize::serialize_single_node(&state.arena, nid);
+                        cur_len += node_latex.len();
+                        last = Some(nid);
+                        if cur_len >= target_len { break; }
+                        cur = state.arena.node(nid).right;
+                    }
+                    state.cursor = Cursor {
+                        parent: state.arena.root,
+                        left: last,
+                        right: last.and_then(|l| state.arena.node(l).right),
+                    };
+                    state.selection = None;
+                }
+            }
+        }
+        Intent::DragUpdate(cursor) => {
+            // If no selection anchor, set one at current cursor position
+            if state.selection.is_none() {
+                state.selection = Some(Selection {
+                    anticursor: state.cursor.clone(),
+                });
+            }
+            // Only update cursor if same block as anchor (single-block selection)
+            if let Some(ref sel) = state.selection {
+                if sel.anticursor.parent == cursor.parent {
+                    state.cursor = cursor;
+                }
+            }
+        }
     }
 }
 
@@ -303,12 +373,24 @@ fn resolve_command_name(state: &mut State, name: String) {
             );
         }
         None => {
-            // Not found: insert letters as individual symbols
+            // Not found in command table: insert letters as individual
+            // symbols and then check if they form an auto-operator name
+            // (e.g. \sin → s,i,n → \operatorname{sin}).
             for ch in name.chars() {
                 state.arena.insert_symbol_at_cursor(&mut state.cursor, ch);
             }
+            try_auto_operator(state);
         }
     }
+}
+
+/// Public version of order_cursors for use by editor_api.
+pub fn order_cursors_pub<'a>(
+    a: &'a Cursor,
+    b: &'a Cursor,
+    arena: &Arena,
+) -> (&'a Cursor, &'a Cursor) {
+    order_cursors(a, b, arena)
 }
 
 /// Order two cursors in the same block: returns (left, right).
@@ -504,4 +586,166 @@ fn try_auto_operator(state: &mut State) {
             right: cursor_right,
         };
     }
+}
+
+/// MathQuill-style auto-subscript: typing a digit immediately after an italic
+/// variable (or after a Sup/SupSub whose base is a variable) auto-wraps the
+/// digit into a subscript. Returns true if auto-subscript was applied.
+///
+/// Examples:
+///   x + 2 → x_{2}        (variable + digit)
+///   x^{2} + 2 → x_{2}^{2}  (exponentiated variable + digit)
+///
+/// Does NOT trigger after operator names (\sin + 2 → \sin 2).
+fn try_auto_subscript(state: &mut State, digit: char) -> bool {
+
+    let cursor_left = match state.cursor.left {
+        Some(nid) => nid,
+        None => return false,
+    };
+
+    // Check what's at cursor.left (the node the digit would go after).
+    // Case 1: cursor.left is an italic variable Symbol
+    // Case 2: cursor.left is a Sup/SupSub whose left sibling is an italic variable
+    let left_kind = &state.arena.node(cursor_left).kind;
+
+    let (base_var, supsub_node) = match left_kind {
+        NodeKind::Symbol { text, atom_family: AtomFamily::Ord } if text.len() == 1 => {
+            let ch = text.chars().next().unwrap();
+            if ch.is_alphabetic() {
+                (cursor_left, None)
+            } else {
+                return false;
+            }
+        }
+        NodeKind::Sup | NodeKind::Sub | NodeKind::SupSub => {
+            // Check if the left sibling of this Sup/Sub is an italic variable
+            let left_of_sup = state.arena.node(cursor_left).left;
+            match left_of_sup {
+                Some(var_id) => {
+                    let var_kind = &state.arena.node(var_id).kind;
+                    match var_kind {
+                        NodeKind::Symbol { text, atom_family: AtomFamily::Ord }
+                            if text.len() == 1 && text.chars().next().unwrap().is_alphabetic() =>
+                        {
+                            (var_id, Some(cursor_left))
+                        }
+                        _ => return false,
+                    }
+                }
+                None => return false,
+            }
+        }
+        _ => return false,
+    };
+
+    // Don't auto-subscript if we're already inside a subscript block
+    let parent_block = state.cursor.parent;
+    if let Some(parent_node) = state.arena.block(parent_block).parent {
+        let parent_kind = &state.arena.node(parent_node).kind;
+        if matches!(parent_kind, NodeKind::Sub | NodeKind::SupSub) {
+            return false;
+        }
+    }
+
+    let block_id = state.cursor.parent;
+    let cursor_right = state.cursor.right;
+
+    match supsub_node {
+        None => {
+            // Case 1: variable + digit → variable_{digit}
+            // Insert a Sub command after the variable, put the digit inside
+            state.cursor = Cursor {
+                parent: block_id,
+                left: Some(base_var),
+                right: cursor_right,
+            };
+
+            let sub_id = state.arena.insert_at_cursor(&mut state.cursor, NodeKind::Sub);
+            let child_block = state.arena.alloc_block(Some(sub_id));
+            state.arena.node_mut(sub_id).blocks = vec![child_block];
+
+            // Insert digit into the subscript block
+            let mut inner_cursor = Cursor {
+                parent: child_block,
+                left: None,
+                right: None,
+            };
+            state.arena.insert_symbol_at_cursor(&mut inner_cursor, digit);
+
+            // Cursor goes after the Sub in the parent block (MathQuill behavior:
+            // next digit typed goes into the subscript, not after it)
+            state.cursor = Cursor {
+                parent: block_id,
+                left: Some(sub_id),
+                right: cursor_right,
+            };
+        }
+        Some(existing_sup_id) => {
+            let existing_kind = state.arena.node(existing_sup_id).kind.clone();
+            match existing_kind {
+                NodeKind::Sup => {
+                    // Case 2: variable + Sup{...} + digit → variable + SupSub{sup, sub=digit}
+                    // Change the Sup to SupSub, add a sub block with the digit
+                    let sup_block = state.arena.node(existing_sup_id).blocks[0];
+                    let sub_block = state.arena.alloc_block(Some(existing_sup_id));
+
+                    state.arena.node_mut(existing_sup_id).kind = NodeKind::SupSub;
+                    state.arena.node_mut(existing_sup_id).blocks = vec![sup_block, sub_block];
+
+                    // Insert digit into the new sub block
+                    let mut inner_cursor = Cursor {
+                        parent: sub_block,
+                        left: None,
+                        right: None,
+                    };
+                    state.arena.insert_symbol_at_cursor(&mut inner_cursor, digit);
+
+                    // Cursor stays after the SupSub in parent block
+                    state.cursor = Cursor {
+                        parent: block_id,
+                        left: Some(existing_sup_id),
+                        right: cursor_right,
+                    };
+                }
+                NodeKind::Sub => {
+                    // Already has a subscript — append digit into it
+                    let sub_block = state.arena.node(existing_sup_id).blocks[0];
+                    let last = state.arena.block(sub_block).last;
+                    let mut inner_cursor = Cursor {
+                        parent: sub_block,
+                        left: last,
+                        right: None,
+                    };
+                    state.arena.insert_symbol_at_cursor(&mut inner_cursor, digit);
+
+                    state.cursor = Cursor {
+                        parent: block_id,
+                        left: Some(existing_sup_id),
+                        right: cursor_right,
+                    };
+                }
+                NodeKind::SupSub => {
+                    // Already has both — append digit into sub block (blocks[1])
+                    let sub_block = state.arena.node(existing_sup_id).blocks[1];
+                    let last = state.arena.block(sub_block).last;
+                    let mut inner_cursor = Cursor {
+                        parent: sub_block,
+                        left: last,
+                        right: None,
+                    };
+                    state.arena.insert_symbol_at_cursor(&mut inner_cursor, digit);
+
+                    state.cursor = Cursor {
+                        parent: block_id,
+                        left: Some(existing_sup_id),
+                        right: cursor_right,
+                    };
+                }
+                _ => return false,
+            }
+        }
+    }
+
+    true
 }

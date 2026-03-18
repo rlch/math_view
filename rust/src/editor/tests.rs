@@ -1708,16 +1708,140 @@ fn test_text_paste() {}
 // ============================================================
 
 #[test]
-#[ignore = "auto-subscript not implemented — 8 tests total"]
-fn test_auto_subscript_all() {}
+fn test_auto_subscript_variables() {
+    // mq.latex('x'); mq.typedText('2'); → 'x_{2}'
+    let mut state = convert::import_latex("x").unwrap();
+    state.cursor = state.arena.move_to_end();
+    reduce::reduce(&mut state, Intent::InsertSymbol('2'));
+    assert_eq!(state.arena.to_latex(), "x_{2}");
+
+    // mq.typedText('3'); → 'x_{23}'
+    reduce::reduce(&mut state, Intent::InsertSymbol('3'));
+    assert_eq!(state.arena.to_latex(), "x_{23}");
+}
+
+#[test]
+fn test_auto_subscript_not_functions() {
+    // mq.latex('sin'); mq.typedText('2'); → '\sin2'
+    let mut state = convert::import_latex("\\sin").unwrap();
+    state.cursor = state.arena.move_to_end();
+    reduce::reduce(&mut state, Intent::InsertSymbol('2'));
+    assert_eq!(state.arena.to_latex(), "\\sin 2");
+
+    // mq.typedText('3'); → '\sin23'
+    reduce::reduce(&mut state, Intent::InsertSymbol('3'));
+    assert_eq!(state.arena.to_latex(), "\\sin 23");
+}
+
+#[test]
+fn test_auto_subscript_exponentiated_variables() {
+    // mq.latex('x^2'); mq.typedText('2'); → 'x_{2}^{2}' (or equivalently 'x^{2}_{2}')
+    let mut state = convert::import_latex("x^{2}").unwrap();
+    state.cursor = state.arena.move_to_end();
+    reduce::reduce(&mut state, Intent::InsertSymbol('2'));
+    let latex = state.arena.to_latex();
+    assert!(latex == "x_{2}^{2}" || latex == "x^{2}_{2}",
+        "Expected x_{{2}}^{{2}} or x^{{2}}_{{2}}, got: {latex}");
+
+    // mq.typedText('3'); → 'x_{23}^{2}' (or equivalently 'x^{2}_{23}')
+    reduce::reduce(&mut state, Intent::InsertSymbol('3'));
+    let latex = state.arena.to_latex();
+    assert!(latex == "x_{23}^{2}" || latex == "x^{2}_{23}",
+        "Expected x_{{23}}^{{2}} or x^{{2}}_{{23}}, got: {latex}");
+}
+
+#[test]
+fn test_auto_subscript_not_exponentiated_functions() {
+    // mq.latex('sin^{2}'); mq.typedText('2'); → '\sin^{2}2'
+    let mut state = convert::import_latex("\\sin^{2}").unwrap();
+    state.cursor = state.arena.move_to_end();
+    reduce::reduce(&mut state, Intent::InsertSymbol('2'));
+    assert_eq!(state.arena.to_latex(), "\\sin ^{2}2");
+}
+
+#[test]
+fn test_auto_subscript_typed_from_scratch() {
+    // Type x then 2 — should auto-subscript
+    let mut state = State::new();
+    type_str(&mut state, "x");
+    assert_eq!(state.arena.to_latex(), "x");
+    type_str(&mut state, "2");
+    assert_eq!(state.arena.to_latex(), "x_{2}",
+        "Typing x then 2 should auto-subscript");
+    type_str(&mut state, "3");
+    assert_eq!(state.arena.to_latex(), "x_{23}",
+        "Typing 3 after x_2 should append to subscript");
+}
+
+#[test]
+fn test_auto_subscript_after_expression() {
+    // Type 1+x then 2 — should auto-subscript just the x
+    let mut state = State::new();
+    type_str(&mut state, "1+x");
+    type_str(&mut state, "2");
+    assert_eq!(state.arena.to_latex(), "1+x_{2}");
+}
+
+#[test]
+fn test_command_input_sin_becomes_operator() {
+    // Type \sin<Enter> — should produce \sin (OperatorName), not "sin"
+    let mut state = State::new();
+    reduce::reduce(&mut state, Intent::InsertCommandInput);
+    reduce::reduce(&mut state, Intent::CommandInputType('s'));
+    reduce::reduce(&mut state, Intent::CommandInputType('i'));
+    reduce::reduce(&mut state, Intent::CommandInputType('n'));
+    reduce::reduce(&mut state, Intent::ResolveCurrentCommandInput);
+    assert_eq!(state.arena.to_latex(), "\\sin ");
+}
+
+#[test]
+fn test_auto_subscript_not_subscripted_functions() {
+    // mq.latex('sin_{10}'); mq.typedText('2'); → '\sin_{10}2'
+    let mut state = convert::import_latex("\\sin_{10}").unwrap();
+    state.cursor = state.arena.move_to_end();
+    reduce::reduce(&mut state, Intent::InsertSymbol('2'));
+    assert_eq!(state.arena.to_latex(), "\\sin _{10}2");
+}
 
 // ============================================================
-// PORTED FROM paste.test.js — Paste
+// PORTED FROM paste.test.js — Paste (InsertLatex)
 // ============================================================
 
 #[test]
-#[ignore = "paste not implemented — 9 tests: √ symbol, √2, sqrt text variants"]
-fn test_paste_all() {}
+fn test_paste_latex_into_empty() {
+    let mut state = State::new();
+    reduce::reduce(&mut state, Intent::InsertLatex(r"\sqrt{}".into()));
+    assert!(latex(&state).contains("sqrt"), "paste sqrt into empty: {}", latex(&state));
+}
+
+#[test]
+fn test_paste_latex_into_non_empty() {
+    let mut state = State::new();
+    type_str(&mut state, "1+");
+    reduce::reduce(&mut state, Intent::InsertLatex(r"\sqrt{}".into()));
+    let l = latex(&state);
+    assert!(l.starts_with("1+"), "should start with 1+, got: {l}");
+    assert!(l.contains("sqrt"), "should contain sqrt, got: {l}");
+}
+
+#[test]
+fn test_paste_latex_at_start() {
+    let mut state = State::new();
+    type_str(&mut state, "1+");
+    reduce::reduce(&mut state, Intent::MoveToStart);
+    reduce::reduce(&mut state, Intent::InsertLatex(r"\frac{a}{b}".into()));
+    let l = latex(&state);
+    assert!(l.contains("frac"), "should contain frac, got: {l}");
+    assert!(l.ends_with("1+"), "should end with 1+, got: {l}");
+}
+
+#[test]
+fn test_paste_plain_text() {
+    let mut state = State::new();
+    type_str(&mut state, "x+");
+    reduce::reduce(&mut state, Intent::InsertLatex("y".into()));
+    assert_eq!(latex(&state), "x+y");
+}
 
 // ============================================================
 // PORTED FROM ans.test.js — Ans command
@@ -1954,9 +2078,14 @@ fn test_phantom_roundtrip() {
 
 #[test]
 fn test_operatorname_roundtrip() {
+    // Built-in operators use shorthand: \operatorname{sin} → \sin
     let state = from_latex("\\operatorname{sin}x");
     let l = latex(&state);
-    assert!(l.contains("operatorname"), "got: {}", l);
+    assert!(l.contains("\\sin"), "expected \\sin shorthand, got: {}", l);
+    // Custom operators stay as \operatorname{...}
+    let state2 = from_latex("\\operatorname{Var}x");
+    let l2 = latex(&state2);
+    assert!(l2.contains("operatorname"), "expected \\operatorname for custom op, got: {}", l2);
 }
 
 // ============================================================
@@ -2044,21 +2173,21 @@ fn test_live_fraction_cursor_in_denominator() {
 fn test_auto_operator_sin() {
     let mut state = State::new();
     type_str(&mut state, "sin");
-    assert_eq!(latex(&state), r"\operatorname{sin}");
+    assert_eq!(latex(&state), r"\sin ");
 }
 
 #[test]
 fn test_auto_operator_cos() {
     let mut state = State::new();
     type_str(&mut state, "cos");
-    assert_eq!(latex(&state), r"\operatorname{cos}");
+    assert_eq!(latex(&state), r"\cos ");
 }
 
 #[test]
 fn test_auto_operator_sin_then_symbol() {
     let mut state = State::new();
     type_str(&mut state, "sinx");
-    assert_eq!(latex(&state), r"\operatorname{sin}x");
+    assert_eq!(latex(&state), r"\sin x");
 }
 
 #[test]
@@ -2073,21 +2202,21 @@ fn test_auto_operator_partial_no_match() {
 fn test_auto_operator_ln() {
     let mut state = State::new();
     type_str(&mut state, "ln");
-    assert_eq!(latex(&state), r"\operatorname{ln}");
+    assert_eq!(latex(&state), r"\ln ");
 }
 
 #[test]
 fn test_auto_operator_log() {
     let mut state = State::new();
     type_str(&mut state, "log");
-    assert_eq!(latex(&state), r"\operatorname{log}");
+    assert_eq!(latex(&state), r"\log ");
 }
 
 #[test]
 fn test_auto_operator_tan() {
     let mut state = State::new();
     type_str(&mut state, "tan");
-    assert_eq!(latex(&state), r"\operatorname{tan}");
+    assert_eq!(latex(&state), r"\tan ");
 }
 
 #[test]
@@ -2095,15 +2224,15 @@ fn test_auto_operator_no_false_positive() {
     // "sin" triggers at 3 chars, then "e" is just a letter after it
     let mut state = State::new();
     type_str(&mut state, "sine");
-    assert_eq!(latex(&state), r"\operatorname{sin}e");
+    assert_eq!(latex(&state), r"\sin e");
 }
 
 #[test]
 fn test_auto_operator_with_preceding_content() {
-    // "x+sin" → "x+\operatorname{sin}"
+    // "x+sin" → "x+\sin "
     let mut state = State::new();
     type_str(&mut state, "x+sin");
-    assert_eq!(latex(&state), r"x+\operatorname{sin}");
+    assert_eq!(latex(&state), r"x+\sin ");
 }
 
 #[test]
@@ -2112,7 +2241,7 @@ fn test_auto_operator_cursor_after_operatorname() {
     // So typing more letters goes after it, not inside it
     let mut state = State::new();
     type_str(&mut state, "sinx");
-    assert_eq!(latex(&state), r"\operatorname{sin}x");
+    assert_eq!(latex(&state), r"\sin x");
 }
 
 #[test]
@@ -2120,26 +2249,155 @@ fn test_auto_operator_longest_match() {
     // "sinh" should match as a whole (not just "sin" + "h")
     let mut state = State::new();
     type_str(&mut state, "sinh");
-    assert_eq!(latex(&state), r"\operatorname{sinh}");
+    assert_eq!(latex(&state), r"\sinh ");
 }
 
 #[test]
 fn test_auto_operator_lim() {
     let mut state = State::new();
     type_str(&mut state, "lim");
-    assert_eq!(latex(&state), r"\operatorname{lim}");
+    assert_eq!(latex(&state), r"\lim ");
 }
 
 #[test]
 fn test_auto_operator_max() {
     let mut state = State::new();
     type_str(&mut state, "max");
-    assert_eq!(latex(&state), r"\operatorname{max}");
+    assert_eq!(latex(&state), r"\max ");
 }
 
 #[test]
 fn test_auto_operator_det() {
     let mut state = State::new();
     type_str(&mut state, "det");
-    assert_eq!(latex(&state), r"\operatorname{det}");
+    assert_eq!(latex(&state), r"\det ");
+}
+
+// ============================================================
+// Undo/Redo tests (via dispatch_editor API)
+// ============================================================
+
+#[test]
+fn test_undo_reverts_insertion() {
+    use crate::api::editor_api::*;
+    let id = create_editor();
+    dispatch_editor(id.clone(), EditorIntent::InsertSymbol { ch: "x".into() }, false);
+    let s1 = dispatch_editor(id.clone(), EditorIntent::InsertSymbol { ch: "y".into() }, false);
+    assert_eq!(s1.latex, "xy");
+
+    let s2 = dispatch_editor(id.clone(), EditorIntent::Undo, false);
+    assert_eq!(s2.latex, "x", "undo should revert to 'x'");
+
+    let s3 = dispatch_editor(id.clone(), EditorIntent::Undo, false);
+    assert_eq!(s3.latex, "", "undo again should revert to empty");
+
+    close_editor(id);
+}
+
+#[test]
+fn test_redo_reapplies() {
+    use crate::api::editor_api::*;
+    let id = create_editor();
+    dispatch_editor(id.clone(), EditorIntent::InsertSymbol { ch: "a".into() }, false);
+    dispatch_editor(id.clone(), EditorIntent::InsertSymbol { ch: "b".into() }, false);
+    dispatch_editor(id.clone(), EditorIntent::Undo, false);
+    let s = dispatch_editor(id.clone(), EditorIntent::Redo, false);
+    assert_eq!(s.latex, "ab", "redo should restore 'ab'");
+    close_editor(id);
+}
+
+#[test]
+fn test_redo_cleared_on_new_edit() {
+    use crate::api::editor_api::*;
+    let id = create_editor();
+    dispatch_editor(id.clone(), EditorIntent::InsertSymbol { ch: "a".into() }, false);
+    dispatch_editor(id.clone(), EditorIntent::InsertSymbol { ch: "b".into() }, false);
+    dispatch_editor(id.clone(), EditorIntent::Undo, false); // back to "a"
+    // New edit should clear redo
+    dispatch_editor(id.clone(), EditorIntent::InsertSymbol { ch: "c".into() }, false);
+    let s = dispatch_editor(id.clone(), EditorIntent::Redo, false);
+    assert_eq!(s.latex, "ac", "redo should be no-op after new edit");
+    close_editor(id);
+}
+
+#[test]
+fn test_undo_navigation_not_snapshotted() {
+    use crate::api::editor_api::*;
+    let id = create_editor();
+    dispatch_editor(id.clone(), EditorIntent::InsertSymbol { ch: "x".into() }, false);
+    // Move left (navigation, should NOT push undo snapshot)
+    dispatch_editor(id.clone(), EditorIntent::MoveLeft, false);
+    dispatch_editor(id.clone(), EditorIntent::MoveRight, false);
+    // Single undo should revert the insertion, not just a cursor move
+    let s = dispatch_editor(id.clone(), EditorIntent::Undo, false);
+    assert_eq!(s.latex, "", "undo should skip navigation and revert insertion");
+    close_editor(id);
+}
+
+// ============================================================
+// Selected LaTeX (copy) tests
+// ============================================================
+
+#[test]
+fn test_get_selected_latex() {
+    use crate::api::editor_api::*;
+    let id = create_editor_from_latex("abc".into());
+    // Select all
+    dispatch_editor(id.clone(), EditorIntent::SelectAll, false);
+    let selected = get_selected_latex(id.clone());
+    assert_eq!(selected, "abc");
+    close_editor(id);
+}
+
+#[test]
+fn test_get_selected_latex_partial() {
+    use crate::api::editor_api::*;
+    let id = create_editor_from_latex("abc".into());
+    dispatch_editor(id.clone(), EditorIntent::MoveToStart, false);
+    // Select first 2 chars
+    dispatch_editor(id.clone(), EditorIntent::SelectRight, false);
+    dispatch_editor(id.clone(), EditorIntent::SelectRight, false);
+    let selected = get_selected_latex(id.clone());
+    assert_eq!(selected, "ab");
+    close_editor(id);
+}
+
+#[test]
+fn test_get_selected_latex_empty_when_no_selection() {
+    use crate::api::editor_api::*;
+    let id = create_editor_from_latex("abc".into());
+    let selected = get_selected_latex(id.clone());
+    assert_eq!(selected, "", "no selection → empty string");
+    close_editor(id);
+}
+
+// ============================================================
+// DragUpdate (drag selection) tests
+// ============================================================
+
+#[test]
+fn test_drag_update_creates_selection() {
+    let mut state = convert::import_latex("abcde").unwrap();
+    state.cursor = state.arena.move_to_start();
+
+    // Move cursor to after 'a'
+    reduce::reduce(&mut state, Intent::MoveRight);
+
+    // Set cursor (simulating DragStart — sets cursor, clears selection)
+    let anchor = state.cursor.clone();
+
+    // Now simulate DragUpdate — cursor moves to after 'c', selection from anchor
+    reduce::reduce(&mut state, Intent::MoveRight); // skip 'b'
+    let target_cursor = state.cursor.clone();
+    // Re-establish: set selection anchor and cursor
+    state.cursor = anchor.clone();
+    state.selection = None;
+    // Use DragUpdate
+    reduce::reduce(&mut state, Intent::DragUpdate(target_cursor));
+
+    assert!(state.selection.is_some(), "DragUpdate should create selection");
+    // Verify selection covers nodes between anchor and drag target
+    let sel = state.selection.as_ref().unwrap();
+    let selected = state.arena.selected_nodes(&sel.anticursor, &state.cursor);
+    assert!(selected.len() >= 1, "should select at least 1 node, got {}", selected.len());
 }

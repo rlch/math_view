@@ -15,7 +15,11 @@ static EDITORS: Mutex<Option<HashMap<String, EditorEntry>>> = Mutex::new(None);
 
 struct EditorEntry {
     state: editor::State,
+    undo_stack: Vec<editor::State>,
+    redo_stack: Vec<editor::State>,
 }
+
+const MAX_UNDO: usize = 100;
 
 fn with_registry<R>(f: impl FnOnce(&mut HashMap<String, EditorEntry>) -> R) -> R {
     let mut guard = EDITORS.lock().unwrap();
@@ -95,7 +99,15 @@ pub enum EditorIntent {
     DeleteBackward,
     DeleteForward,
     SetLatex { latex: String },
+    /// Insert parsed LaTeX at cursor (paste).
+    InsertLatex { latex: String },
     TapBlock { block_id: u32, caret_index: u32 },
+    /// Begin drag selection: set anchor and cursor.
+    DragStart { block_id: u32, caret_index: u32 },
+    /// Continue drag selection: move cursor, keep anchor.
+    DragUpdate { block_id: u32, caret_index: u32 },
+    Undo,
+    Redo,
 }
 
 // ---------------------------------------------------------------------------
@@ -107,7 +119,7 @@ pub enum EditorIntent {
 pub fn create_editor() -> String {
     let id = next_id();
     with_registry(|map| {
-        map.insert(id.clone(), EditorEntry { state: editor::State::new() });
+        map.insert(id.clone(), EditorEntry { state: editor::State::new(), undo_stack: Vec::new(), redo_stack: Vec::new() });
     });
     id
 }
@@ -118,9 +130,35 @@ pub fn create_editor_from_latex(latex: String) -> String {
     let id = next_id();
     let state = editor::convert::import_latex(&latex).unwrap_or_else(|_| editor::State::new());
     with_registry(|map| {
-        map.insert(id.clone(), EditorEntry { state });
+        map.insert(id.clone(), EditorEntry { state, undo_stack: Vec::new(), redo_stack: Vec::new() });
     });
     id
+}
+
+/// Get the LaTeX of the current selection (for copy). Empty string if no selection.
+#[frb(sync)]
+pub fn get_selected_latex(id: String) -> String {
+    with_registry(|map| {
+        let entry = match map.get(&id) {
+            Some(e) => e,
+            None => return String::new(),
+        };
+        let sel = match &entry.state.selection {
+            Some(s) => s,
+            None => return String::new(),
+        };
+        let (left, right) = editor::reduce::order_cursors_pub(
+            &sel.anticursor, &entry.state.cursor, &entry.state.arena,
+        );
+        if left.parent != right.parent {
+            return String::new();
+        }
+        let nodes = entry.state.arena.selected_nodes(left, right);
+        if nodes.is_empty() {
+            return String::new();
+        }
+        crate::editor::serialize::serialize_nodes(&entry.state.arena, &nodes)
+    })
 }
 
 /// Dispatch an intent and get back the new snapshot.
@@ -131,6 +169,45 @@ pub fn dispatch_editor(id: String, intent: EditorIntent, display_mode: bool) -> 
             Some(e) => e,
             None => return empty_snapshot(),
         };
+
+        // Handle undo/redo separately (they swap state, not mutate it)
+        match &intent {
+            EditorIntent::Undo => {
+                if let Some(prev) = entry.undo_stack.pop() {
+                    let current = std::mem::replace(&mut entry.state, prev);
+                    entry.redo_stack.push(current);
+                }
+                return build_snapshot(&entry.state, display_mode);
+            }
+            EditorIntent::Redo => {
+                if let Some(next) = entry.redo_stack.pop() {
+                    let current = std::mem::replace(&mut entry.state, next);
+                    entry.undo_stack.push(current);
+                }
+                return build_snapshot(&entry.state, display_mode);
+            }
+            _ => {}
+        }
+
+        // Snapshot before mutating intents (skip pure navigation)
+        let is_navigation = matches!(
+            &intent,
+            EditorIntent::MoveLeft | EditorIntent::MoveRight
+            | EditorIntent::MoveUp | EditorIntent::MoveDown
+            | EditorIntent::MoveToStart | EditorIntent::MoveToEnd
+            | EditorIntent::EscapeRight
+            | EditorIntent::SelectLeft | EditorIntent::SelectRight
+            | EditorIntent::SelectAll
+            | EditorIntent::TapBlock { .. }
+            | EditorIntent::DragStart { .. } | EditorIntent::DragUpdate { .. }
+        );
+        if !is_navigation {
+            entry.undo_stack.push(entry.state.clone());
+            if entry.undo_stack.len() > MAX_UNDO {
+                entry.undo_stack.remove(0);
+            }
+            entry.redo_stack.clear();
+        }
 
         let core_intent = convert_intent(intent, &entry.state.arena);
         editor::reduce(&mut entry.state, core_intent);
@@ -298,9 +375,20 @@ fn convert_intent(intent: EditorIntent, arena: &editor::Arena) -> editor::Intent
         EditorIntent::DeleteBackward => editor::Intent::DeleteBackward,
         EditorIntent::DeleteForward => editor::Intent::DeleteForward,
         EditorIntent::SetLatex { latex } => editor::Intent::SetLatex(latex),
+        EditorIntent::InsertLatex { latex } => editor::Intent::InsertLatex(latex),
         EditorIntent::TapBlock { block_id, caret_index } => {
             resolve_tap_block(arena, block_id, caret_index)
         }
+        EditorIntent::DragStart { block_id, caret_index } => {
+            resolve_tap_block(arena, block_id, caret_index)
+        }
+        EditorIntent::DragUpdate { block_id, caret_index } => {
+            // Resolve position, then apply as selection extension
+            let cursor = resolve_tap_cursor(arena, block_id, caret_index);
+            editor::Intent::DragUpdate(cursor)
+        }
+        // Undo/Redo handled in dispatch_editor before convert_intent is called
+        EditorIntent::Undo | EditorIntent::Redo => unreachable!(),
     }
 }
 
@@ -341,4 +429,27 @@ fn resolve_tap_block(arena: &editor::Arena, block_id: u32, caret_index: u32) -> 
         left: block.last,
         right: None,
     })
+}
+
+/// Resolve block_id + caret_index into a Cursor (without wrapping in Intent).
+fn resolve_tap_cursor(arena: &editor::Arena, block_id: u32, caret_index: u32) -> editor::Cursor {
+    let bid = editor::BlockId(block_id);
+    if bid.0 as usize >= arena.blocks.len() {
+        return arena.move_to_end();
+    }
+    let block = arena.block(bid);
+    if caret_index == 0 {
+        return editor::Cursor { parent: bid, left: None, right: block.first };
+    }
+    let mut current = block.first;
+    let mut count = 0u32;
+    while let Some(nid) = current {
+        count += 1;
+        if count == caret_index {
+            let node = arena.node(nid);
+            return editor::Cursor { parent: bid, left: Some(nid), right: node.right };
+        }
+        current = arena.node(nid).right;
+    }
+    editor::Cursor { parent: bid, left: block.last, right: None }
 }

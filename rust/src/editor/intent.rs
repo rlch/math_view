@@ -54,10 +54,14 @@ pub enum Intent {
     // --- Import ---
     /// Replace entire content with parsed LaTeX.
     SetLatex(String),
+    /// Insert parsed LaTeX at cursor position (paste).
+    InsertLatex(String),
 
     // --- Hit test result ---
     /// Set cursor from a HitMap click resolution.
     SetCursor(Cursor),
+    /// Extend selection to the given cursor position (drag).
+    DragUpdate(Cursor),
 }
 
 /// Commands that can be inserted, each mapping to a NodeKind with child blocks.
